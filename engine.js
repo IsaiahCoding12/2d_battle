@@ -878,6 +878,7 @@ function loadLevel(levelName) {
         });
         setCell(10, 5, '/assets/blocks/door_bottom.png', { solid: false, isDoor: true, targetLevel: 'main' });
     } else if (levelName === 'cliffs') {
+        //hi
         rows = 19;
         cols = 19;
         respawnx = 9;
