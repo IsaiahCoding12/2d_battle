@@ -1,0 +1,32 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100vh;
+}
+
+.lora-normal {
+  font-family: "Lora", serif;
+  font-optical-sizing: auto;
+  font-weight: 500;
+  font-style: normal;
+}
+
+.cta {
+    text-align: center;
+    cursor: pointer;
+    background-color: #727272;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    box-shadow: 0 4px #999;
+}
+
+.cta:active {
+    background-color: #3e8e41;
+    box-shadow: 0 2px #666;
+    transform: translateY(2px);
+}
