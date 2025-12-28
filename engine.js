@@ -46,6 +46,8 @@ const keysPressed = {};
 let animations = []; // { from, to, toggle }
 let animationIntervalId = null;
 let messageTimeoutId = null;
+let messageBlocking = false;
+let blockShoot = false;
 
 // -----------------------------
 // WEAPON
@@ -497,7 +499,8 @@ function createCoordsDisplay() {
     document.body.appendChild(el);
 }
 
-function showMessage(text, color = 'white') {
+function showMessage(text, color = 'white', blocking = false) {
+    if (messageBlocking) return;
     const messageBox = document.getElementById('message-box');
     const messageText = document.getElementById('message-text');
     if (!messageBox || !messageText) return;
@@ -514,8 +517,13 @@ function showMessage(text, color = 'white') {
 
     messageBox.style.display = 'block';
 
+    if (blocking) {
+        messageBlocking = true;
+    }
+
     messageTimeoutId = setTimeout(() => {
         messageBox.style.display = 'none';
+        if (blocking) messageBlocking = false;
     }, 2000);
 }
 
@@ -613,17 +621,24 @@ function spawnMonster(row, col, hp, damage, skin) {
     const index = row * cols + col;
     if (!grid[index]) return;
 
-    const prevBg = grid[index].bg;
+    const el = document.createElement('div');
+    el.style.width = `${CELL_SIZE}px`;
+    el.style.height = `${CELL_SIZE}px`;
+    el.style.position = 'absolute';
+    el.style.left = `${col * CELL_SIZE}px`;
+    el.style.top = `${row * CELL_SIZE}px`;
+    el.style.backgroundImage = `url('${skin}')`;
+    el.style.backgroundSize = 'cover';
+    el.style.zIndex = '12';
+    gridContainer.appendChild(el);
 
-    setCell(row, col, skin, {
-        solid: true,
-        monster: {
-            hp: hp,
-            damage: damage,
-            prevBg: prevBg,
-            lastHitTime: -1000
-        }
-    });
+    grid[index].solid = true;
+    grid[index].monster = {
+        hp: hp,
+        damage: damage,
+        element: el,
+        lastHitTime: -1000
+    };
 }
 
 // =============================
@@ -674,7 +689,7 @@ function shoot(row, col) {
     else if (equipped === Glock.name) damage = Glock.damage;
     else if (equipped === Sniper.name) damage = Sniper.damage;
 
-    if (damage > 0) {
+    if (damage > 0 && blockShoot === false) {
         showMessage("Bang!", "red"); 
     }
 
@@ -684,11 +699,17 @@ function shoot(row, col) {
 
         cell.monster.hp -= damage;
         if (cell.monster.hp <= 0) {
-            showMessage("Monster defeated! +20 gold!", "gold");
+            showMessage("Monster defeated! +20 gold!", "gold", true);
             money += 20;
             updateUI();
-            const prev = cell.monster.prevBg || '/assets/blocks/grass.png';
-            setCell(row, col, prev, { solid: false });
+            if (cell.monster.isFirey) {
+                gameFlags.fireyKilled = true;
+                setCells(0, 18, 10, 18, '/assets/blocks/stone.png', { solid: false , isDoor: true, targetLevel: 'main'});
+                setupDowntownNPCs();
+            }
+            if (cell.monster.element) cell.monster.element.remove();
+            cell.monster = null;
+            cell.solid = false;
         } else {
             showMessage(`Hit! HP: ${cell.monster.hp}`, "orange");
         }
@@ -708,22 +729,8 @@ async function moveMonsterTo(startRow, startCol, targetRow, targetCol, duration)
 
     if (!startCell || !startCell.monster) return;
 
-    // 1. Setup Visuals & Data
     const monsterData = startCell.monster;
-    const skin = startCell.bg; 
-    let prevBg = monsterData.prevBg || '/assets/blocks/grass.png';
-
-    // Create floating visual
-    const visual = document.createElement('div');
-    visual.style.width = `${CELL_SIZE}px`;
-    visual.style.height = `${CELL_SIZE}px`;
-    visual.style.position = 'absolute';
-    visual.style.left = `${startCol * CELL_SIZE}px`;
-    visual.style.top = `${startRow * CELL_SIZE}px`;
-    visual.style.backgroundImage = `url('${skin}')`;
-    visual.style.backgroundSize = 'cover';
-    visual.style.zIndex = '15';
-    gridContainer.appendChild(visual);
+    const visual = monsterData.element;
 
     // 2. BFS Pathfinding
     const queue = [{ r: startRow, c: startCol, path: [] }];
@@ -760,19 +767,19 @@ async function moveMonsterTo(startRow, startCol, targetRow, targetCol, duration)
 
         for (const step of finalPath) {
             if (monsterData.hp <= 0) {
-                gridContainer.removeChild(visual);
                 return;
             }
 
             // 1. Update Grid Logic (Move monster logically before visual)
             // Clear old cell
-            setCell(currentR, currentC, prevBg, { solid: false });
+            const oldIdx = currentR * cols + currentC;
+            grid[oldIdx].solid = false;
+            grid[oldIdx].monster = null;
 
             // Occupy new cell
             const nextIndex = step.r * cols + step.c;
-            prevBg = grid[nextIndex].bg; // Save ground of new cell
-            monsterData.prevBg = prevBg;
-            setCell(step.r, step.c, prevBg, { solid: true, monster: monsterData });
+            grid[nextIndex].solid = true;
+            grid[nextIndex].monster = monsterData;
 
             // Check collision with player
             if (player.x === step.c && player.y === step.r) {
@@ -790,11 +797,6 @@ async function moveMonsterTo(startRow, startCol, targetRow, targetCol, duration)
             currentC = step.c;
         }
     }
-
-    // 3. Finish
-    gridContainer.removeChild(visual);
-    // Finalize the monster position with the actual skin
-    setCell(targetRow, targetCol, skin, { solid: true, monster: monsterData });
 }
 
 async function follow(startRow, startCol) {
@@ -913,33 +915,18 @@ function loadLevel(levelName) {
         setCell(0, 14, '/assets/blocks/dirt.png', { solid: true});
         setCells(7, 2, 5, 4, '/assets/blocks/leaves.png', {solid: false, overhead: true});
         setCells(8, 3, 9, 3, '/assets/blocks/wood.png', { solid: true});
-        setCell(0, 1, '/assets/npcs/cloak_man.png', { solid: true, 
-            isShop: true, 
-            shopName: "Magic Shop (Items aren't really magic)",
-            shopItems: [{name: 'Fish', price: 5}, {name: 'SMUB', price: 50000}, {name: '1 Doller', price: 10}],
-            isSign: true, 
-            message: ["Cloak Man: I am the cloak man from the world's beyond. (Click again)", "I sell mystical items here... (Click again)", "I collect them from other universes!"] 
-        });
-        setCell(0, 5, '/assets/npcs/bobby.png', { solid: true,
-            isShop: true, 
-            shopName: "Bobby's Finds",
-            shopItems: [{name: 'Grenade', price: 13}, {name: 'Energy Bar', price: 10}],
-            isSign: true, 
-            message: ["Bobby: Hey! (Click again)", "I'm Bobby, and I sell some stuff me and my dad find! (Click again)", "Take a look!"]
-        });
-        setCell(0, 9, '/assets/npcs/fred.png', { solid: true,
-            isShop: true, 
-            shopName: "Fred's Stuff",
-            shopItems: [{name: 'Bop it!', price: 17}],
-            isSign: true, 
-            message: ["Fred: Hi. (Click again)", "My name is Fred and I only have one thing to sell. Sorry 😞"]
-        }  );
+        
+        setupDowntownNPCs();
 
-
-        if (!gameFlags.downtownIntro) {
-            showMessage('Monsters attack! Fight or run away!', 'red');
-            gameFlags.downtownIntro = true;
+        if (!gameFlags.fireyKilled) {
+            if (!gameFlags.downtownIntro) {
+                showMessage('Monsters attack! Fight back with your weapons!', 'red');
+                setCells(10, 18, 0, 18, '/assets/blocks/stone.png', { solid: false, isDoor: false} )
+                gameFlags.downtownIntro = true;
+            }
             spawnMonster(5, 5, 100, 20, '/assets/npcs/firey.png');
+            const idx = 5 * cols + 5;
+            if (grid[idx] && grid[idx].monster) grid[idx].monster.isFirey = true;
             follow(5, 5);
         }
         
@@ -953,6 +940,7 @@ function loadLevel(levelName) {
 }
 
 function openShop(items, shopName) {
+    if (messageBlocking) return;
     if (document.getElementById('shop-overlay')) return;
 
     const overlay = document.createElement('div');
@@ -1002,7 +990,7 @@ function closeShop() {
 }
 
 function buyItem(name, cost) {
-    if (name === '1 Doller') {
+    if (name === '1 Doller' && money >= 10) {
         money -= 9;
         updateUI();
         showMessage("Cloak Man: Imagine falling for that scam! (Hahaha)", "green");
@@ -1018,5 +1006,35 @@ function buyItem(name, cost) {
         showMessage("Inventory full!", "red");
     } else {
         showMessage("Not enough money!", "red");
+    }
+}
+
+function setupDowntownNPCs() {
+    if (gameFlags.fireyKilled) {
+        setCell(0, 1, '/assets/npcs/cloak_man.png', { solid: true, 
+            isShop: true, 
+            shopName: "Magic Shop (Items aren't really magic)",
+            shopItems: [{name: 'Fish', price: 5}, {name: 'SMUB', price: 50000}, {name: '1 Doller', price: 10}],
+            isSign: true, 
+            message: ["Cloak Man: I am the cloak man from the world's beyond. (Click again)", "I sell mystical items here... (Click again)", "I collect them from other universes!"] 
+        });
+        setCell(0, 5, '/assets/npcs/bobby.png', { solid: true,
+            isShop: true, 
+            shopName: "Bobby's Finds",
+            shopItems: [{name: 'Grenade', price: 13}, {name: 'Energy Bar', price: 10}],
+            isSign: true, 
+            message: ["Bobby: Hey! (Click again)", "I'm Bobby, and I sell some stuff me and my dad find! (Click again)", "Take a look!"]
+        });
+        setCell(0, 9, '/assets/npcs/fred.png', { solid: true,
+            isShop: true,
+            shopName: "Fred's Stuff",
+            shopItems: [{name: 'Bop it!', price: 17}],
+            isSign: true, 
+            message: ["Fred: Hi. (Click again)", "My name is Fred and I only have one thing to sell. Sorry 😞"]
+        });
+    } else {
+        setCell(0, 1, '/assets/npcs/cloak_man.png', { solid: true, isShop: false, isSign: true, message: "Cloak Man: hahaha, i like monsters" });
+        setCell(0, 5, '/assets/npcs/bobby.png', { solid: true, isShop: false, isSign: true, message: "Bobby: MMMM.. MONSTER!!!" });
+        setCell(0, 9, '/assets/npcs/fred.png', { solid: true, isShop: false, isSign: true, message: "Fred: MMMM.. MONSTER!!!" });
     }
 }
