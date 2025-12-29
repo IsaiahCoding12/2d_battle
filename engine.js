@@ -947,11 +947,13 @@ function loadLevel(levelName) {
         if (!playerElement) createPlayer(gridContainer);
         player.x = b1rx; player.y = b1ry;
         setCells(0, 0, 18, 0, '/assets/blocks/stone.png', {solid: false, isDoor: true, targetLevel: 'main'});
+        setCells(15, 14, 18, 14, '/assets/blocks/stone.png', {solid: false, isDoor: true, targetLevel: 'Midday_City_Mall'});
         setCells(14, 7, 0, 14, '/assets/blocks/brick.png', {solid: true});
         setCells(12, 0, 12, 6, '/assets/blocks/modern_brick.png', {solid: true});
         setCell(14, 9, '/assets/blocks/door_bottom.png', {solid: false, isDoor: true, targetLevel: 'Building1(in)'});
         setCell(13, 9, '/assets/blocks/door_top.png', {solid: false, isDoor: true, targetLevel: 'Building1(in)'});
-        
+        setCell(15, 12, '/assets/blocks/sign.png', {solid:false, isSign: true, message: 'Midday City Mall to the right!'}) 
+
         let peterMsg = [];
         if (gameFlags.peterQuestComplete) {
             peterMsg = ["Peter: Thanks."];
@@ -1051,7 +1053,24 @@ function loadLevel(levelName) {
         }
         setCell(1, 5, '/assets/npcs/joe.png', {solid: true, isSign: true, message: joeMsg});
         setCell(10, 5, '/assets/blocks/door_bottom.png', {solid: false, isDoor: true, targetLevel: 'building1'});
-    }   
+    } else if (levelName === 'Midday_City_Mall'){
+        rows = 19;
+        cols = 19;
+        initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
+        if (!playerElement) createPlayer(gridContainer);
+        
+        // Default spawn for main
+        b1rx = 13;
+        b1ry = 17;
+        player.x = 1; player.y = 17;
+
+        setCells(0, 0, 18, 0, '/assets/blocks/stone.png', {solid: false, isDoor: true, targetLevel: 'building1'});
+        setCells(13, 0, 3, 18, '/assets/blocks/brick.png', {solid: true});
+        setCells(13, 7, 11, 11, '/assets/blocks/stone.png', {solid: false, isDoor: true, targetLevel: 'Midday_City_Mall(in)'});
+        setCell(11,8, '/assets/blocks/MCM_sign_1.png', {solid: false, isSign: true, message: 'Welcome to the Midday City Mall!'});
+        setCell(11,9, '/assets/blocks/MCM_sign_2.png', {solid: false, isSign: true, message: 'Welcome to the Midday City Mall!'});
+        setCell(11,10, '/assets/blocks/exclamation_sign.png', {solid: false, isSign: true, message: 'Welcome to the Midday City Mall!'});
+    }  
     if (!cursorImage) setupCrosshair(gridContainer);
     if (playerElement) {
         playerElement.style.left = `${player.x * CELL_SIZE}px`;
