@@ -65,6 +65,8 @@ const Glock = new Weapon("Glock", 20);
 const Sniper = new Weapon("Sniper", 100);
 const SMUB = new Weapon('Super-Mega-Ultra-Blaster!!!!', 1000000000000);
 const Grenade = new Weapon('Grenade', 35);
+const Peters_Note = new Weapon('Peters Note', 0);
+const Joes_Box = new Weapon('Joes Box', 0);
 
 // inventory items (item1 uses actual pistol name)
 let equipped = Pistol.name;
@@ -314,7 +316,11 @@ function initiateGrid(r, c, value, container) {
             if (cellData && cellData.isSign && cellData.message) {
                 if (Array.isArray(cellData.message)) {
                     if (typeof cellData.messageIndex === 'undefined') cellData.messageIndex = 0;
-                    showMessage(cellData.message[cellData.messageIndex]);
+                    
+                    let msg = cellData.message[cellData.messageIndex];
+                    if (typeof msg === 'function') msg = msg();
+                    
+                    showMessage(msg);
                     
                     if (cellData.isShop && cellData.messageIndex === cellData.message.length - 1) {
                         setTimeout(() => openShop(cellData.shopItems, cellData.shopName), 1000);
@@ -832,6 +838,8 @@ function loadLevel(levelName) {
         if (!playerElement) createPlayer(gridContainer);
         
         // Default spawn for main
+        b1rx = 1;
+        b1ry = 15;
         player.x = respawnx; player.y = respawny;
 
         setCell(16, 16, '/assets/blocks/sign.png', { isSign: true, message: "Welcome to Midday city.", solid: false });
@@ -850,7 +858,7 @@ function loadLevel(levelName) {
         setCells(18, 0, 18, 6, '/assets/blocks/stone.png', { solid: false, isDoor: true, targetLevel: 'cliffs' });
         setCells(18, 12, 18, 18, '/assets/blocks/stone.png', { solid: false, isDoor: true, targetLevel: 'cliffs' });
         setCells(0, 0, 18, 0 , '/assets/blocks/stone.png', { solid: false, isDoor: true, targetLevel: 'downtown' });
-
+        setCells(0, 18, 18, 18, '/assets/blocks/stone.png', { solid: false, isDoor: true, targetLevel: 'building1'});
         setCells(10, 2, 10, 4, '/assets/blocks/glass.png', { solid: true });
         setCell(14, 1, '/assets/blocks/sign.png', { isSign: true, message: "Store inside.", solid: false });
     } else if (levelName === 'store') {
@@ -884,11 +892,11 @@ function loadLevel(levelName) {
         rows = 19;
         cols = 19;
         respawnx = 9;
-        respawny = 18;
+        respawny = 17;
         initiateGrid(rows, cols, '/assets/blocks/grass.png', gridContainer);
         if (!playerElement) createPlayer(gridContainer);
         
-        player.x = 9; player.y = 0;
+        player.x = 9; player.y = 1;
 
         setCells(9, 0, 9, 6, '/assets/blocks/grass_dirt.png', { solid: true });
         setCells(10, 7, 10, 13, '/assets/blocks/grass_dirt.png', { solid: true });
@@ -930,8 +938,120 @@ function loadLevel(levelName) {
             follow(5, 5);
         }
         
-    }
-    
+    } else if (levelName === 'building1') {
+        rows = 19;
+        cols = 15;
+        respawnx = 18;
+        respawny = 15;
+        initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
+        if (!playerElement) createPlayer(gridContainer);
+        player.x = b1rx; player.y = b1ry;
+        setCells(0, 0, 18, 0, '/assets/blocks/stone.png', {solid: false, isDoor: true, targetLevel: 'main'});
+        setCells(14, 7, 0, 14, '/assets/blocks/brick.png', {solid: true});
+        setCells(12, 0, 12, 6, '/assets/blocks/modern_brick.png', {solid: true});
+        setCell(14, 9, '/assets/blocks/door_bottom.png', {solid: false, isDoor: true, targetLevel: 'Building1(in)'});
+        setCell(13, 9, '/assets/blocks/door_top.png', {solid: false, isDoor: true, targetLevel: 'Building1(in)'});
+        
+        let peterMsg = [];
+        if (gameFlags.peterQuestComplete) {
+            peterMsg = ["Peter: Thanks."];
+        } else if ([item1, item2, item3, item4, item5].includes(Joes_Box.name)) {
+            peterMsg = [
+                "Peter: Oh a box? (Click again)", 
+                "It's a sorry note and $100 dollars. (Click again)", 
+                () => {
+                    if (item1 === Joes_Box.name) item1 = 'nothing';
+                    else if (item2 === Joes_Box.name) item2 = 'nothing';
+                    else if (item3 === Joes_Box.name) item3 = 'nothing';
+                    else if (item4 === Joes_Box.name) item4 = 'nothing';
+                    else if (item5 === Joes_Box.name) item5 = 'nothing';
+                    
+                    money += 20;
+                    gameFlags.peterQuestComplete = true;
+                    updateUI();
+                    
+                    const idx = 13 * cols + 4;
+                    if (grid[idx]) { grid[idx].message = ["Peter: Thanks."]; grid[idx].messageIndex = 0; }
+                    return "Peter: Thanks for doing that take $20.";
+                }
+            ];
+        } else {
+            peterMsg = [
+                'Peter: Hey... (Click again)', 
+                'The name is Peter... (Click again)', 
+                'Ya see that building... (Click again)' , 
+                'A man named Joe lives there. He bought it with money from my invention I made. (Click again)', 
+                () => {
+                    const note = Peters_Note.name;
+                    let slot = "";
+                    if ([item1, item2, item3, item4, item5].includes(note)) return "Peter: Wait a minute!!! You already have the note.";
+
+                    if (item1 === 'nothing') { item1 = note; slot = "1st"; }
+                    else if (item2 === 'nothing') { item2 = note; slot = "2nd"; }
+                    else if (item3 === 'nothing') { item3 = note; slot = "3rd"; }
+                    else if (item4 === 'nothing') { item4 = note; slot = "4th"; }
+                    else if (item5 === 'nothing') { item5 = note; slot = "5th"; }
+
+                    if (slot) { updateUI(); return `Peter: Give him this note will ya? It's in your ${slot} inventory slot. Thanks!`;}
+                    return "Peter: Your inventory is full!";
+                }
+            ];
+        }
+        setCell(13, 4, '/assets/npcs/peter.png', {solid: true, isSign: true, message: peterMsg});
+    } else if (levelName === 'Building1(in)') {
+        rows = 11;
+        cols = 11;
+        b1rx = 9;
+        b1ry = 15;
+        initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
+        if (!playerElement) createPlayer(gridContainer);
+        player.x = 5; player.y = 10;
+        setCells(0, 0, 0, 10, '/assets/blocks/brick.png', { solid: true });
+        setCells(10, 0, 10, 10, '/assets/blocks/brick.png', { solid: true });
+        setCells(0, 0, 10, 0, '/assets/blocks/brick.png', { solid: true });
+        setCells(0, 10, 10, 10, '/assets/blocks/brick.png', { solid: true });
+        setCells(2, 3, 2, 7, '/assets/blocks/modern_brick.png', { solid: true });
+        setCell(1, 3, '/assets/blocks/modern_brick.png', { solid: true });
+        setCell(1, 7, '/assets/blocks/modern_brick.png', { solid: true });
+        
+        let joeMsg = [];
+        if (gameFlags.peterQuestComplete) {
+            joeMsg = ["Joe: Thanks."];
+        } else if (gameFlags.givenNoteToJoe) {
+            joeMsg = ["Joe: Please give that box to Peter."];
+        } else if ([item1, item2, item3, item4, item5].includes(Peters_Note.name)) {
+            joeMsg = [
+                "Joe: GET OU- (Click again)",
+                "A note you say??? Let me read it. (Click again)",
+                () => {
+                    if (item1 === Peters_Note.name) item1 = 'nothing';
+                    else if (item2 === Peters_Note.name) item2 = 'nothing';
+                    else if (item3 === Peters_Note.name) item3 = 'nothing';
+                    else if (item4 === Peters_Note.name) item4 = 'nothing';
+                    else if (item5 === Peters_Note.name) item5 = 'nothing';
+
+                    const box = Joes_Box.name;
+                    let slot = "";
+                    if (item1 === 'nothing') { item1 = box; slot = "1st"; }
+                    else if (item2 === 'nothing') { item2 = box; slot = "2nd"; }
+                    else if (item3 === 'nothing') { item3 = box; slot = "3rd"; }
+                    else if (item4 === 'nothing') { item4 = box; slot = "4th"; }
+                    else if (item5 === 'nothing') { item5 = box; slot = "5th"; }
+
+                    gameFlags.givenNoteToJoe = true;
+                    updateUI();
+                    const idx = 1 * cols + 5;
+                    if (grid[idx]) { grid[idx].message = ["Joe: Please give that box to Peter."]; grid[idx].messageIndex = 0; }
+                    if (slot) return `Joe: Oh... Please give him this box. Its in your ${slot} inventory slot.`;
+                    return "Joe: Inventory full!";
+                }
+            ];
+        } else {
+            joeMsg = ["Joe: GET OUT OF MY BUILDING!!!"];
+        }
+        setCell(1, 5, '/assets/npcs/joe.png', {solid: true, isSign: true, message: joeMsg});
+        setCell(10, 5, '/assets/blocks/door_bottom.png', {solid: false, isDoor: true, targetLevel: 'building1'});
+    }   
     if (!cursorImage) setupCrosshair(gridContainer);
     if (playerElement) {
         playerElement.style.left = `${player.x * CELL_SIZE}px`;
