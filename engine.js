@@ -1070,7 +1070,13 @@ function loadLevel(levelName) {
         setCell(11,8, '/assets/blocks/MCM_sign_1.png', {solid: false, isSign: true, message: 'Welcome to the Midday City Mall!'});
         setCell(11,9, '/assets/blocks/MCM_sign_2.png', {solid: false, isSign: true, message: 'Welcome to the Midday City Mall!'});
         setCell(11,10, '/assets/blocks/exclamation_sign.png', {solid: false, isSign: true, message: 'Welcome to the Midday City Mall!'});
-    }  
+    } else if (levelName === 'Midday_City_Mall(in)') {
+        rows = 19;
+        cols = 19;
+        initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
+        if (!playerElement) createPlayer(gridContainer);
+        player.x = 9; player.y = 17;
+    }
     if (!cursorImage) setupCrosshair(gridContainer);
     if (playerElement) {
         playerElement.style.left = `${player.x * CELL_SIZE}px`;
