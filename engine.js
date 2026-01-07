@@ -17,6 +17,11 @@ let respawny = 9;
 let hp = 100;
 let money = 50;
 let gameFlags = {};
+let deaths = parseInt(localStorage.getItem('deaths') || '0');
+let fit = "Casual";
+let ownedFits = ["Casual"];
+let job = "Unemployed";
+let isDead = false;
 
 let playerElement = null;
 let cursorImage = null;
@@ -62,7 +67,11 @@ class Weapon {
 const blank = new Weapon("nothing", 0);
 const Pistol = new Weapon("Pistol", 10);
 const Glock = new Weapon("Glock", 20);
-const Sniper = new Weapon("Sniper", 100);
+const Sniper = new Weapon("Sniper", 45);
+const Uzi = new Weapon('Uzi', 75);
+const M4 = new Weapon('M4', 110);
+const AK47 = new Weapon('AK47', 55);
+
 const SMUB = new Weapon('Super-Mega-Ultra-Blaster!!!!', 1000000000000);
 const Grenade = new Weapon('Grenade', 35);
 const Peters_Note = new Weapon('Peters Note', 0);
@@ -117,7 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // =============================
 function createPlayer(container) {
     playerElement = document.createElement('img');
-    playerElement.src = '/assets/player/idle.png';
+    playerElement.src = `/assets/player/${fit.replace(/ /g, '_')}/idle.png`;
     playerElement.style.position = 'absolute';
     playerElement.style.left = `${player.x * CELL_SIZE}px`;
     playerElement.style.top = `${player.y * CELL_SIZE}px`;
@@ -142,11 +151,22 @@ function handleKeyPress(event) {
         if (coordsEl) coordsEl.style.display = showCoords ? 'block' : 'none';
     }
 
-    if (event.key === '1') showMessage("You equipped " + item1), equipped = item1;
-    if (event.key === '2') showMessage("You equipped " + item2), equipped = item2;
-    if (event.key === '3') showMessage("You equipped " + item3), equipped = item3;
-    if (event.key === '4') showMessage("You equipped " + item4), equipped = item4;
-    if (event.key === '5') showMessage("You equipped " + item5), equipped = item5;
+    if (event.key === '1') { showMessage("You equipped " + item1); equipped = item1; updateFit(); }
+    if (event.key === '2') { showMessage("You equipped " + item2); equipped = item2; updateFit(); }
+    if (event.key === '3') { showMessage("You equipped " + item3); equipped = item3; updateFit(); }
+    if (event.key === '4') { showMessage("You equipped " + item4); equipped = item4; updateFit(); }
+    if (event.key === '5') { showMessage("You equipped " + item5); equipped = item5; updateFit(); }
+
+    if (event.key === 'l') showMessage("Clothes: " + fit + ", Job: " + job + ", Deaths: " + deaths);
+
+    if (event.key === 'e') {
+        let idx = ownedFits.indexOf(fit);
+        if (idx === -1) idx = 0;
+        let nextIdx = (idx + 1) % ownedFits.length;
+        fit = ownedFits[nextIdx];
+        showMessage("Changed fit to " + fit);
+        if (playerElement) playerElement.src = `/assets/player/${fit.replace(/ /g, '_')}/idle.png`;
+    }
 }
 
 function handleKeyRelease(event) {
@@ -157,7 +177,15 @@ function handleKeyRelease(event) {
 
     if (!stillMoving && playerElement) {
         player.isMoving = false;
-        playerElement.src = '/assets/player/idle.png';
+        playerElement.src = `/assets/player/${fit.replace(/ /g, '_')}/idle.png`;
+    }
+}
+
+function updateFit() {
+    const validFits = ["Casual", "Street Wear", "Jersey", "White Tuxedo"];
+    if (validFits.includes(equipped)) {
+        fit = equipped;
+        if (playerElement) playerElement.src = `/assets/player/${fit.replace(/ /g, '_')}/idle.png`;
     }
 }
 
@@ -213,9 +241,9 @@ function update(currentTime) {
     // visuals
     if (isHorizontalMove && playerElement) {
         player.walkFrame = player.walkFrame === 1 ? 2 : 1;
-        playerElement.src = `/assets/player/walk_${player.walkFrame}.png`;
+        playerElement.src = `/assets/player/${fit.replace(/ /g, '_')}/walk_${player.walkFrame}.png`;
     } else if (moved && playerElement) {
-        playerElement.src = '/assets/player/idle.png';
+        playerElement.src = `/assets/player/${fit.replace(/ /g, '_')}/idle.png`;
     }
 
     // apply move
@@ -239,10 +267,20 @@ function update(currentTime) {
 // =============================
 function gameLoop(timestamp) {
     if (hp < 1) {
-        // visual effect if dead
-        initiateGrid(rows, cols, '#FF0000', gridContainer);
-        if (playerElement) playerElement.style.display = 'none';
-        if (cursorImage) cursorImage.style.display = 'none';
+        if (!isDead) {
+            isDead = true;
+            deaths++;
+            localStorage.setItem('deaths', deaths);
+            // visual effect if dead
+            initiateGrid(rows, cols, '#FF0000', gridContainer);
+            if (playerElement) playerElement.style.display = 'none';
+            if (cursorImage) cursorImage.style.display = 'none';
+            showMessage("You died! Press R to restart.", "red", true);
+        }
+        if (keysPressed['r'] || keysPressed['R']){
+            location.reload();
+        }
+        requestAnimationFrame(gameLoop);
         return;
     }
 
@@ -678,6 +716,52 @@ function shoot(row, col) {
         else if (item5 === 'Energy Bar') item5 = 'nothing';
         equipped = 'nothing';
         return;
+    } else if (equipped.startsWith('Beef Jerky')) {
+        hp += 4;
+        updateUI();
+        showMessage("You ate some Beef Jerky.", "green");
+
+        let nextName = 'nothing';
+        if (equipped === 'Beef Jerky') {
+            nextName = 'Beef Jerky (4)';
+        } else {
+            const match = equipped.match(/\((\d+)\)/);
+            if (match) {
+                const uses = parseInt(match[1], 10);
+                if (uses > 1) nextName = `Beef Jerky (${uses - 1})`;
+            }
+        }
+
+        if (item1 === equipped) item1 = nextName;
+        else if (item2 === equipped) item2 = nextName;
+        else if (item3 === equipped) item3 = nextName;
+        else if (item4 === equipped) item4 = nextName;
+        else if (item5 === equipped) item5 = nextName;
+        equipped = nextName;
+        return;
+    } else if (equipped === 'Money Bar') {
+        hp += 10;
+        money += 10;
+        updateUI();
+        showMessage("You ate a Money Bar. +$10", "green");
+        if (item1 === 'Money Bar') item1 = 'nothing';
+        else if (item2 === 'Money Bar') item2 = 'nothing';
+        else if (item3 === 'Money Bar') item3 = 'nothing';
+        else if (item4 === 'Money Bar') item4 = 'nothing';
+        else if (item5 === 'Money Bar') item5 = 'nothing';
+        equipped = 'nothing';
+        return;
+    } else if (equipped === 'Kombucha') {
+        hp += 10;
+        updateUI();
+        showMessage("You drank Kombucha.", "green");
+        if (item1 === 'Kombucha') item1 = 'nothing';
+        else if (item2 === 'Kombucha') item2 = 'nothing';
+        else if (item3 === 'Kombucha') item3 = 'nothing';
+        else if (item4 === 'Kombucha') item4 = 'nothing';
+        else if (item5 === 'Kombucha') item5 = 'nothing';
+        equipped = 'nothing';
+        return;
     } else if (equipped === 'Grenade') {
         showMessage("BOOM", "red");
         if (item1 === 'Grenade') item1 = 'nothing';
@@ -694,7 +778,9 @@ function shoot(row, col) {
     if (equipped === Pistol.name) damage = Pistol.damage;
     else if (equipped === Glock.name) damage = Glock.damage;
     else if (equipped === Sniper.name) damage = Sniper.damage;
-
+    else if (equipped === AK47.name) damage = AK47.damage;
+    else if (equipped === Uzi.name) damage = UZI.damage;
+    else if (equipped === M4.name) damage = M4.damage;
     if (damage > 0 && blockShoot === false) {
         showMessage("Bang!", "red"); 
     }
@@ -943,6 +1029,8 @@ function loadLevel(levelName) {
         cols = 15;
         respawnx = 18;
         respawny = 15;
+        msx = 1;
+        msy = 17;
         initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
         if (!playerElement) createPlayer(gridContainer);
         player.x = b1rx; player.y = b1ry;
@@ -1059,10 +1147,9 @@ function loadLevel(levelName) {
         initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
         if (!playerElement) createPlayer(gridContainer);
         
-        // Default spawn for main
         b1rx = 13;
         b1ry = 17;
-        player.x = 1; player.y = 17;
+        player.x = msx; player.y = msy;
 
         setCells(0, 0, 18, 0, '/assets/blocks/stone.png', {solid: false, isDoor: true, targetLevel: 'building1'});
         setCells(13, 0, 3, 18, '/assets/blocks/brick.png', {solid: true});
@@ -1073,9 +1160,37 @@ function loadLevel(levelName) {
     } else if (levelName === 'Midday_City_Mall(in)') {
         rows = 21;
         cols = 21;
+        msx = 9;
+        msy = 14;
         initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
         if (!playerElement) createPlayer(gridContainer);
-        player.x = 9; player.y = 17;
+        player.x = 10; player.y = 20;
+
+        setCells(20, 0, 20, 20, '/assets/blocks/stone.png', {solid: false, isDoor: true, targetLevel: 'Midday_City_Mall'});
+        setCells(20, 0, 20, 8, '/assets/blocks/brick.png', {solid: true});
+        setCells(20, 12, 20, 20, '/assets/blocks/brick.png', {solid: true});
+        setCells(0, 0, 19, 0, '/assets/blocks/brick.png', {solid: true});
+        setCells(0, 20, 19, 20, '/assets/blocks/brick.png', {solid: true});
+        setCells(0, 1, 0, 19, '/assets/blocks/brick.png', {solid: true});
+
+        setCells(4, 1, 4, 4, '/assets/blocks/modern_brick.png', {solid: true});
+        setCells(1, 4, 4, 4, '/assets/blocks/modern_brick.png', {solid: true});
+        setCell(2, 2, '/assets/blocks/mall_kiosk.png', {isShop: true, solid: true, isSign: true, message: "Beep...",
+            shopName: "MCM Weapons Kiosk",
+            shopItems:[{name: 'AK47', price: 75}, {name: 'Uzi', price: 145}, {name: 'M4', price: 200}]
+        });
+        setCells(4, 16, 4, 19, '/assets/blocks/modern_brick.png', {solid: true});
+        setCells(1, 16, 3, 16, '/assets/blocks/modern_brick.png', {solid: true});
+        setCell(2, 18, '/assets/blocks/mall_kiosk.png', {isShop: true, solid: true, isSign: true, message: "Beep...",
+            shopName: "MCM Food Kiosk",
+            shopItems:[{name: 'Beef Jerky', price: 15}, {name: 'Money Bar', price: 25}, {name: 'Kombucha', price: 5}]
+        });
+        setCells(1, 8, 4, 12, '/assets/blocks/modern_brick.png', {solid: true});
+        setCells(3, 9, 1, 11, '/assets/blocks/stone.png', {solid: false});
+        setCell(2, 10, '/assets/blocks/mall_kiosk.png', {isShop: true, solid: true, isSign: true, message: "Beep...",
+            shopName: "MCM Clothes Kiosk",
+            shopItems:[{name: 'Street Wear', price: 30}, {name: 'Jersey', price: 30}, {name: 'White Tuxedo', price: 30}]
+        });
     }
     if (!cursorImage) setupCrosshair(gridContainer);
     if (playerElement) {
@@ -1143,11 +1258,22 @@ function buyItem(name, cost) {
         return;
     }
     if (money >= cost) {
-        if (item1 === 'nothing') { item1 = name; money -= cost; updateUI(); showMessage(`Bought ${name}!`, "green"); closeShop(); return; }
-        if (item2 === 'nothing') { item2 = name; money -= cost; updateUI(); showMessage(`Bought ${name}!`, "green"); closeShop(); return; }
-        if (item3 === 'nothing') { item3 = name; money -= cost; updateUI(); showMessage(`Bought ${name}!`, "green"); closeShop(); return; }
-        if (item4 === 'nothing') { item4 = name; money -= cost; updateUI(); showMessage(`Bought ${name}!`, "green"); closeShop(); return; }
-        if (item5 === 'nothing') { item5 = name; money -= cost; updateUI(); showMessage(`Bought ${name}!`, "green"); closeShop(); return; }
+        let bought = false;
+        if (item1 === 'nothing') { item1 = name; bought = true; }
+        else if (item2 === 'nothing') { item2 = name; bought = true; }
+        else if (item3 === 'nothing') { item3 = name; bought = true; }
+        else if (item4 === 'nothing') { item4 = name; bought = true; }
+        else if (item5 === 'nothing') { item5 = name; bought = true; }
+
+        if (bought) {
+            money -= cost;
+            updateUI();
+            showMessage(`Bought ${name}!`, "green");
+            const validFits = ["Casual", "Street Wear", "Jersey", "White Tuxedo"];
+            if (validFits.includes(name) && !ownedFits.includes(name)) ownedFits.push(name);
+            closeShop();
+            return;
+        }
         showMessage("Inventory full!", "red");
     } else {
         showMessage("Not enough money!", "red");
