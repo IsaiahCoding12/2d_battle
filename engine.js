@@ -21,6 +21,8 @@ let deaths = parseInt(localStorage.getItem('deaths') || '0');
 let fit = "Casual";
 let ownedFits = ["Casual"];
 let job = "Unemployed";
+let bankMoney = parseInt(localStorage.getItem('bankMoney') || '0');
+let lastBankInterestTime = 0;
 let isDead = false;
 
 let playerElement = null;
@@ -48,11 +50,19 @@ let cols = 19;
 let grid = []; // array of cell metadata length rows*cols
 const keysPressed = {};
 
+let bjax = 10;
+let bjay = 19;
+let b1rx = 1;
+let b1ry = 15;
+let msx = 1;
+let msy = 17;
+
 let animations = []; // { from, to, toggle }
 let animationIntervalId = null;
 let messageTimeoutId = null;
 let messageBlocking = false;
 let blockShoot = false;
+let bgm = null;
 
 // -----------------------------
 // WEAPON
@@ -76,6 +86,7 @@ const SMUB = new Weapon('Super-Mega-Ultra-Blaster!!!!', 1000000000000);
 const Grenade = new Weapon('Grenade', 35);
 const Peters_Note = new Weapon('Peters Note', 0);
 const Joes_Box = new Weapon('Joes Box', 0);
+const Key = new Weapon('Key', 0);
 
 // inventory items (item1 uses actual pistol name)
 let equipped = Pistol.name;
@@ -94,6 +105,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     createMessageBox()
     createCoordsDisplay();
+
+    // Background Music
+    bgm = new Audio('/assets/town.mp3');
+    bgm.loop = true;
+    bgm.addEventListener('ended', function() {
+        this.currentTime = 0;
+        this.play();
+    }, false);
+    createStartScreen();
 
     gridContainer = document.querySelector(".grid");
     if (!gridContainer) {
@@ -126,11 +146,20 @@ document.addEventListener("DOMContentLoaded", () => {
 // =============================
 function createPlayer(container) {
     playerElement = document.createElement('img');
-    playerElement.src = `/assets/player/${fit.replace(/ /g, '_')}/idle.png`;
+    let folder = fit.replace(/ /g, '_');
+    if (fit === "Your very own cloak!!!") folder = "cloak_man_fit";
+    playerElement.src = `/assets/player/${folder}/idle.png`;
+    playerElement.style.display = 'block';
     playerElement.style.position = 'absolute';
     playerElement.style.left = `${player.x * CELL_SIZE}px`;
     playerElement.style.top = `${player.y * CELL_SIZE}px`;
-    playerElement.style.width = `${CELL_SIZE}px`;
+    if (fit === "Casual" || fit === "Your very own cloak!!!") {
+        playerElement.style.width = `${CELL_SIZE}px`;
+        playerElement.style.marginLeft = '0px';
+    } else {
+        playerElement.style.width = `${CELL_SIZE * 0.8}px`;
+        playerElement.style.marginLeft = `${CELL_SIZE * 0.1}px`;
+    }
     playerElement.style.height = `${CELL_SIZE}px`;
     playerElement.style.zIndex = '10';
     playerElement.style.transition = 'left 0.1s linear, top 0.1s linear';
@@ -151,13 +180,13 @@ function handleKeyPress(event) {
         if (coordsEl) coordsEl.style.display = showCoords ? 'block' : 'none';
     }
 
-    if (event.key === '1') { showMessage("You equipped " + item1); equipped = item1; updateFit(); }
-    if (event.key === '2') { showMessage("You equipped " + item2); equipped = item2; updateFit(); }
-    if (event.key === '3') { showMessage("You equipped " + item3); equipped = item3; updateFit(); }
-    if (event.key === '4') { showMessage("You equipped " + item4); equipped = item4; updateFit(); }
-    if (event.key === '5') { showMessage("You equipped " + item5); equipped = item5; updateFit(); }
+    if (event.key === '1') { showMessage("You equipped " + item1); equipped = item1; }
+    if (event.key === '2') { showMessage("You equipped " + item2); equipped = item2; }
+    if (event.key === '3') { showMessage("You equipped " + item3); equipped = item3; }
+    if (event.key === '4') { showMessage("You equipped " + item4); equipped = item4; }
+    if (event.key === '5') { showMessage("You equipped " + item5); equipped = item5; }
 
-    if (event.key === 'l') showMessage("Clothes: " + fit + ", Job: " + job + ", Deaths: " + deaths);
+    if (event.key === 'l') showMessage("Clothes: " + fit + ", Job: " + job + ", Money in bank: " + bankMoney);
 
     if (event.key === 'e') {
         let idx = ownedFits.indexOf(fit);
@@ -165,7 +194,18 @@ function handleKeyPress(event) {
         let nextIdx = (idx + 1) % ownedFits.length;
         fit = ownedFits[nextIdx];
         showMessage("Changed fit to " + fit);
-        if (playerElement) playerElement.src = `/assets/player/${fit.replace(/ /g, '_')}/idle.png`;
+        if (playerElement) {
+            let folder = fit.replace(/ /g, '_');
+            if (fit === "Your very own cloak!!!") folder = "cloakman_fit";
+            playerElement.src = `/assets/player/${folder}/idle.png`;
+            if (fit === "Casual" || fit === "Your very own cloak!!!") {
+                playerElement.style.width = `${CELL_SIZE}px`;
+                playerElement.style.marginLeft = '0px';
+            } else {
+                playerElement.style.width = `${CELL_SIZE * 0.8}px`;
+                playerElement.style.marginLeft = `${CELL_SIZE * 0.1}px`;
+            }
+        }
     }
 }
 
@@ -177,15 +217,28 @@ function handleKeyRelease(event) {
 
     if (!stillMoving && playerElement) {
         player.isMoving = false;
-        playerElement.src = `/assets/player/${fit.replace(/ /g, '_')}/idle.png`;
+        let folder = fit.replace(/ /g, '_');
+        if (fit === "Your very own cloak!!!") folder = "cloakman_fit";
+        playerElement.src = `/assets/player/${folder}/idle.png`;
     }
 }
 
 function updateFit() {
-    const validFits = ["Casual", "Street Wear", "Jersey", "White Tuxedo"];
+    const validFits = ["Casual", "Street Wear", "Jersey", "White Tuxedo", "Your very own cloak!!!"];
     if (validFits.includes(equipped)) {
         fit = equipped;
-        if (playerElement) playerElement.src = `/assets/player/${fit.replace(/ /g, '_')}/idle.png`;
+        if (playerElement) {
+            let folder = fit.replace(/ /g, '_');
+            if (fit === "Your very own cloak!!!") folder = "cloakman_fit";
+            playerElement.src = `/assets/player/${folder}/idle.png`;
+            if (fit === "Casual" || fit === "Your very own cloak!!!") {
+                playerElement.style.width = `${CELL_SIZE}px`;
+                playerElement.style.marginLeft = '0px';
+            } else {
+                playerElement.style.width = `${CELL_SIZE * 0.8}px`;
+                playerElement.style.marginLeft = `${CELL_SIZE * 0.1}px`;
+            }
+        }
     }
 }
 
@@ -239,11 +292,14 @@ function update(currentTime) {
     }
 
     // visuals
+    let folder = fit.replace(/ /g, '_');
+    if (fit === "Your very own cloak!!!") folder = "cloakman_fit";
+
     if (isHorizontalMove && playerElement) {
         player.walkFrame = player.walkFrame === 1 ? 2 : 1;
-        playerElement.src = `/assets/player/${fit.replace(/ /g, '_')}/walk_${player.walkFrame}.png`;
+        playerElement.src = `/assets/player/${folder}/walk_${player.walkFrame}.png`;
     } else if (moved && playerElement) {
-        playerElement.src = `/assets/player/${fit.replace(/ /g, '_')}/idle.png`;
+        playerElement.src = `/assets/player/${folder}/idle.png`;
     }
 
     // apply move
@@ -271,10 +327,16 @@ function gameLoop(timestamp) {
             isDead = true;
             deaths++;
             localStorage.setItem('deaths', deaths);
+            bankMoney = 0;
+            localStorage.setItem('bankMoney', bankMoney);
             // visual effect if dead
             initiateGrid(rows, cols, '#FF0000', gridContainer);
             if (playerElement) playerElement.style.display = 'none';
             if (cursorImage) cursorImage.style.display = 'none';
+            if (bgm) {
+                bgm.pause();
+                bgm.currentTime = 0;
+            }
             showMessage("You died! Press R to restart.", "red", true);
         }
         if (keysPressed['r'] || keysPressed['R']){
@@ -292,6 +354,16 @@ function gameLoop(timestamp) {
 
     if (isMovingKey && timeSinceLastMove >= player.moveCooldown) {
         update(currentTime);
+    }
+
+    // Bank Interest: $1 per $20 every minute
+    if (currentTime - lastBankInterestTime > 60000) {
+        if (bankMoney >= 20) {
+            const interest = Math.floor(bankMoney / 20);
+            bankMoney += interest;
+            localStorage.setItem('bankMoney', bankMoney);
+        }
+        lastBankInterestTime = currentTime;
     }
 
     updateCrosshair();
@@ -350,6 +422,17 @@ function initiateGrid(r, c, value, container) {
             const clickedCol = idx % cols;
             const cellData = grid[idx];
 
+            // Locked door handling
+            if (cellData && cellData.isLockedDoor) {
+                if ([item1, item2, item3, item4, item5].includes(Key.name)) {
+                    showMessage("Unlocked!", "green");
+                    loadLevel(cellData.targetLevel);
+                } else {
+                    showMessage("Locked...", "white");
+                }
+                return;
+            }
+
             // sign handling
             if (cellData && cellData.isSign && cellData.message) {
                 if (Array.isArray(cellData.message)) {
@@ -400,7 +483,10 @@ function initiateGrid(r, c, value, container) {
 
     // re-append cursor and player so they stay on top
     if (cursorImage) container.appendChild(cursorImage);
-    if (playerElement) container.appendChild(playerElement);
+    if (playerElement) {
+        container.appendChild(playerElement);
+        playerElement.style.display = 'block';
+    }
 }
 
 
@@ -524,6 +610,20 @@ function createMessageBox() {
         if (messageTimeoutId) {
             clearTimeout(messageTimeoutId);
             messageTimeoutId = null;
+        }
+    });
+}
+
+function createStartScreen() {
+    const screen = document.createElement('div');
+    screen.id = 'start-screen';
+    screen.innerHTML = '<p>Click to Start</p>';
+    document.body.appendChild(screen);
+
+    screen.addEventListener('click', () => {
+        screen.remove();
+        if (bgm) {
+            bgm.play().catch(e => console.error("Audio play failed. Check file format.", e));
         }
     });
 }
@@ -773,13 +873,24 @@ function shoot(row, col) {
         return;
     } else if (equipped === 'Bop it!') {
         showMessage("You bopped it! You are filled with a sense of joy!", "gold");
+    } else if (['Slice with Cheese', 'Slice with Pepperoni', 'Slice with Black Olives'].includes(equipped)) {
+        hp += 10;
+        updateUI();
+        showMessage("You ate a slice of pizza.", "green");
+        if (item1 === equipped) item1 = 'nothing';
+        else if (item2 === equipped) item2 = 'nothing';
+        else if (item3 === equipped) item3 = 'nothing';
+        else if (item4 === equipped) item4 = 'nothing';
+        else if (item5 === equipped) item5 = 'nothing';
+        equipped = 'nothing';
+        return;
     }
 
     if (equipped === Pistol.name) damage = Pistol.damage;
     else if (equipped === Glock.name) damage = Glock.damage;
     else if (equipped === Sniper.name) damage = Sniper.damage;
     else if (equipped === AK47.name) damage = AK47.damage;
-    else if (equipped === Uzi.name) damage = UZI.damage;
+    else if (equipped === Uzi.name) damage = Uzi.damage;
     else if (equipped === M4.name) damage = M4.damage;
     if (damage > 0 && blockShoot === false) {
         showMessage("Bang!", "red"); 
@@ -798,6 +909,16 @@ function shoot(row, col) {
                 gameFlags.fireyKilled = true;
                 setCells(0, 18, 10, 18, '/assets/blocks/stone.png', { solid: false , isDoor: true, targetLevel: 'main'});
                 setupDowntownNPCs();
+            }
+            if (cell.monster.isVaultSlime) {
+                const remaining = grid.filter(c => c.monster && c.monster.isVaultSlime).length;
+                if (remaining <= 1) {
+                    gameFlags.vaultCleared = true;
+                    setCell(10, 5, '/assets/blocks/door_bottom.png', {solid: false, isDoor: true, targetLevel: 'Bank'});
+                    money += 100;
+                    updateUI();
+                    showMessage("The door opens... You found $200 and gave half to Rob.", "green");
+                }
             }
             if (cell.monster.element) cell.monster.element.remove();
             cell.monster = null;
@@ -926,6 +1047,7 @@ function loadLevel(levelName) {
         // Default spawn for main
         b1rx = 1;
         b1ry = 15;
+        bjax = 10; bjay = 19;
         player.x = respawnx; player.y = respawny;
 
         setCell(16, 16, '/assets/blocks/sign.png', { isSign: true, message: "Welcome to Midday city.", solid: false });
@@ -947,6 +1069,10 @@ function loadLevel(levelName) {
         setCells(0, 18, 18, 18, '/assets/blocks/stone.png', { solid: false, isDoor: true, targetLevel: 'building1'});
         setCells(10, 2, 10, 4, '/assets/blocks/glass.png', { solid: true });
         setCell(14, 1, '/assets/blocks/sign.png', { isSign: true, message: "Store inside.", solid: false });
+
+        setCells(0, 0, 0, 18, '/assets/blocks/stone.png', { solid: false , isDoor: true, targetLevel: 'Bank/Job Area'});
+        setCells(0, 7, 0, 11, '/assets/blocks/street_side.png', { solid: false , isDoor: true, targetLevel: 'Bank/Job Area'});
+
     } else if (levelName === 'store') {
         rows = 11;
         cols = 11;
@@ -1054,7 +1180,6 @@ function loadLevel(levelName) {
                     else if (item2 === Joes_Box.name) item2 = 'nothing';
                     else if (item3 === Joes_Box.name) item3 = 'nothing';
                     else if (item4 === Joes_Box.name) item4 = 'nothing';
-                    else if (item5 === Joes_Box.name) item5 = 'nothing';
                     
                     money += 20;
                     gameFlags.peterQuestComplete = true;
@@ -1157,6 +1282,8 @@ function loadLevel(levelName) {
         setCell(11,8, '/assets/blocks/MCM_sign_1.png', {solid: false, isSign: true, message: 'Welcome to the Midday City Mall!'});
         setCell(11,9, '/assets/blocks/MCM_sign_2.png', {solid: false, isSign: true, message: 'Welcome to the Midday City Mall!'});
         setCell(11,10, '/assets/blocks/exclamation_sign.png', {solid: false, isSign: true, message: 'Welcome to the Midday City Mall!'});
+        setCells(14, 18, 18, 18, '/assets/blocks/modern_brick.png', {solid: true});
+        setCells(18, 0, 18, 18, '/assets/blocks/modern_brick.png', {solid: true});
     } else if (levelName === 'Midday_City_Mall(in)') {
         rows = 21;
         cols = 21;
@@ -1191,7 +1318,140 @@ function loadLevel(levelName) {
             shopName: "MCM Clothes Kiosk",
             shopItems:[{name: 'Street Wear', price: 30}, {name: 'Jersey', price: 30}, {name: 'White Tuxedo', price: 30}]
         });
+        setCells(15, 7, 15, 13, '/assets/blocks/brick.png', {solid: true});
+        setCells(9, 7, 9, 13, '/assets/blocks/brick.png', {solid: true});
+        setCells(9, 7, 15, 7, '/assets/blocks/brick.png', {solid: true});
+        setCells(9, 13, 15, 13, '/assets/blocks/brick.png', {solid: true});
+        setCells(14, 8, 10, 12, '/assets/blocks/water.png', {
+            solid: true, 
+            isShop: true, 
+            shopName: "Wishing Fountain", 
+            shopItems: [{name: 'Throw Coin', price: 1}]
+        });
+
+
+    } else if (levelName === 'Bank/Job Area') {
+        rows = 21;
+        cols = 21;
+        respawnx = 9;
+        respawny = 1;
+        initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
+        if (!playerElement) createPlayer(gridContainer);
+        player.x = bjax; player.y = bjay;
+
+        setCells(4, 0, 4, 20, '/assets/blocks/modern_brick.png', {solid: true});
+        setCells(20, 0, 20, 20, '/assets/blocks/stone.png', { solid: false, isDoor: true, targetLevel: 'main' });
+        setCells(0, 3, 8, 17, '/assets/blocks/brick.png', { solid: true});
+        setCells(8, 9, 6, 11, '/assets/blocks/stone.png', {solid: false, isDoor: true, targetLevel: 'Bank'});
+        setCell(5, 8, '/assets/blocks/B_sign.png', { solid: true, isSign: true, message:'Midday Bank'});
+        setCell(5, 9, '/assets/blocks/A_sign.png', { solid: true, isSign: true, message:'Midday Bank'});
+        setCell(5, 10, '/assets/blocks/N_sign.png', { solid: true, isSign: true, message:'Midday Bank'});
+        setCell(5, 11, '/assets/blocks/K_sign.png', { solid: true, isSign: true, message:'Midday Bank'});
+        setCell(5, 12, '/assets/blocks/exclamation_sign.png', { solid: true, isSign: true, message:'Midday Bank'});
+        setCells(17, 0, 10, 4, '/assets/blocks/brick.png', {solid: true});
+        setCell(17, 2, '/assets/blocks/door_bottom.png', {solid: false, isDoor: true, targetLevel: 'Pizza Place'});
+        setCell(16, 2, '/assets/blocks/door_top.png', {solid: false, isDoor: true, targetLevel: 'Pizza Place'});
+        setCell(14, 2, '/assets/blocks/lukes_pizza_sign.png', {solid: true, isSign: true, message:'Lukes Pizza: Best in the West!'});
+        setCells(20, 17, 19, 19, '/assets/blocks/modern_brick.png', {solid:true});
+        setCells(19, 18, 18, 18, '/assets/blocks/wood.png', {solid:true});
+        setCells(17, 17, 15, 19, '/assets/blocks/leaves.png', {solid:false, overhead:true});
+        
+        let robMsg = [];
+        if (gameFlags.vaultCleared) {
+            robMsg = ["Rob: Thanks. Remeber don't rat to the cops."];
+        } else if (gameFlags.robQuestAccepted) {
+            robMsg = ["Rob: Go do it!"];
+        } else {
+            robMsg = [
+                'Rob: Hey there! (Click Again)', 
+                'The name is Rob, as in: Rob a bank. (Click Again)', 
+                'Speaking of robbing banks I have a business oppurtunity for you. (Click Again)', 
+                'You could make a lot of money (Click Again)', 
+                'If you rob the bank for me I will give you 50 precent of the money! (Click Again)', 
+                () => {
+                    setTimeout(() => openShop([{name: 'I am in!'}, {name: 'No way!'}], "Help Rob?"), 500);
+                    return 'Why do I get 50 precent? Because I discovered the route into the bank. You in?';
+                }
+            ];
+        }
+        setCell(11, 18, '/assets/npcs/rob.png', {solid: true, isSign: true, message: robMsg});
+
+    } else if (levelName === 'Bank') {
+        rows = 13;
+        cols = 23;
+        bjax = 10;
+        bjay = 9;
+        initiateGrid(rows, cols, '/assets/blocks/wood.png', gridContainer);
+        player.x = 11; player.y = 10;
+        if (!playerElement) createPlayer(gridContainer);
+
+        setCells(12, 0, 12, 22, '/assets/blocks/wood.png', {solid: false, isDoor: true, targetLevel: 'Bank/Job Area'});
+        setCells(0, 9, 3, 9, '/assets/blocks/modern_brick.png', {solid: true});
+        setCells(0, 13, 3, 13, '/assets/blocks/modern_brick.png', {solid: true});
+        setCells(3, 9, 3, 13, '/assets/blocks/modern_brick.png', {solid: true});
+        setCell(0, 17, '/assets/blocks/door_bottom.png', {solid: true, isLockedDoor: true, targetLevel: 'Bank_Vault'});
+        setCell(1, 11, '/assets/npcs/jay.png', {solid: true, isSign: true, message:['Jay: Hey... (Click again)', 'Welcome to the bank. (Click Again)', 'What can I help you with?'], isShop: true,
+        shopName: "Jay: What can I help you with?",
+        shopItems: [{name: 'Add Money'}, {name: 'Take Money',}, {name: 'Why should I put money here?', customResponse: "Jay: Every minute, you get $1 for every $20 in the bank! You can earn a lot!"}]
+        });
+        
+        let cloakMsg = ["Cloak Man: Hey there. (Click Again)", "I'm the Cloak Man. I sell stuff downtown. You might see me there. (Click Again)", "Anyway you wanna buy someth- (Click Again)", "Jay (Bank Guy): Hey!!! Are you talking to random people again! (Click Again)", "Cloak Man: Don't listen to him. Now you wanna buy something or not."];
+        let isCloakShop = true;
+        if (ownedFits.includes("Your very own cloak!!!")) {
+            cloakMsg = ["Cloak Man: Hi."];
+            isCloakShop = false;
+        }
+
+        setCell(6, 1, '/assets/npcs/cloak_man.png', {solid: true, isSign: true, message: cloakMsg, isShop: isCloakShop,
+            shopName: "Cloak Man",
+            shopItems:[{name: 'Your very own cloak!!!', price: 20}]});
+    } else if (levelName === 'Pizza Place') {
+        rows = 13;
+        cols = 13;
+        bjax = 2;
+        bjay = 18;
+        initiateGrid(rows, cols, '/assets/blocks/wood.png', gridContainer);
+        player.x = 6; player.y = 11;
+        if (!playerElement) createPlayer(gridContainer);
+
+        setCells(12, 5, 12, 0, '/assets/blocks/brick.png', {solid: true});
+        setCells(12, 7, 12, 12, '/assets/blocks/brick.png', {solid: true});
+        setCell(12, 6, '/assets/blocks/door_bottom.png', {solid:false, isDoor: true, targetLevel: 'Bank/Job Area'})
+        setCells(0, 4, 2, 4, '/assets/blocks/brick.png', {solid: true});
+        setCells(0, 8, 2, 8, '/assets/blocks/brick.png', {solid: true});
+        setCells(2, 4, 2, 8, '/assets/blocks/brick.png', {solid: true});
+        setCell(1, 6, '/assets/npcs/luke.png', {solid: true, isSign: true, message: 'Luke: Welcome to lukes pizza. We are the best in the west! (Click Again)', isShop: true,
+            shopName: 'Lukes Pizza',
+            shopItems: [{name: 'Slice with Cheese', price: 10}, {name: 'Slice with Pepperoni', price: 10}, {name: "Slice with Black Olives", price: 10}]
+        });
+        
+    } else if (levelName === 'Bank_Vault') {
+        rows = 11;
+        cols = 11;
+        initiateGrid(rows, cols, '/assets/blocks/modern_brick.png', gridContainer);
+        if (!playerElement) createPlayer(gridContainer);
+        player.x = 5; player.y = 9;
+        
+        setCells(0, 0, 10, 0, '/assets/blocks/brick.png', {solid: true});
+        setCells(0, 0, 0, 10, '/assets/blocks/brick.png', {solid: true});
+        setCells(0, 10, 10, 10, '/assets/blocks/brick.png', {solid: true});
+        setCells(10, 0, 10, 10, '/assets/blocks/brick.png', {solid: true});
+        
+        if (gameFlags.vaultCleared) {
+            setCell(10, 5, '/assets/blocks/door_bottom.png', {solid: false, isDoor: true, targetLevel: 'Bank'});
+            setCell(5, 5, '/assets/blocks/sign.png', {isSign: true, message: "Chunk!!! You opened the vault!"});
+        } else {
+            setCell(10, 5, '/assets/blocks/brick.png', {solid: true});
+            spawnMonster(3, 3, 30, 5, '/assets/npcs/slime.png');
+            if (grid[3 * cols + 3].monster) { grid[3 * cols + 3].monster.isVaultSlime = true; follow(3, 3); }
+
+            spawnMonster(3, 8, 30, 5, '/assets/npcs/slime.png');
+            if (grid[3 * cols + 8].monster) { grid[3 * cols + 8].monster.isVaultSlime = true; follow(3, 8); }
+            showMessage("Ambush! Defeat the slimes!", "red");
+        }
+
     }
+
     if (!cursorImage) setupCrosshair(gridContainer);
     if (playerElement) {
         playerElement.style.left = `${player.x * CELL_SIZE}px`;
@@ -1236,7 +1496,11 @@ function openShop(items, shopName) {
 
     if (items && Array.isArray(items)) {
         items.forEach(item => {
-            overlay.appendChild(createBtn(`${item.name} ($${item.price})`, () => buyItem(item.name, item.price)));
+            let btnText = item.name;
+            if (item.price !== undefined) {
+                btnText += ` ($${item.price})`;
+            }
+            overlay.appendChild(createBtn(btnText, () => buyItem(item.name, item.price, item.customResponse)));
         });
     }
     overlay.appendChild(createBtn(`Exit`, () => closeShop()));
@@ -1249,7 +1513,39 @@ function closeShop() {
     if (overlay) document.body.removeChild(overlay);
 }
 
-function buyItem(name, cost) {
+function buyItem(name, cost, customResponse) {
+    if (customResponse) {
+        showMessage(customResponse, "white");
+        return;
+    }
+    if (name === 'I am in!') {
+        let slot = "";
+        if (item1 === 'nothing') { item1 = Key.name; slot = "1st"; }
+        else if (item2 === 'nothing') { item2 = Key.name; slot = "2nd"; }
+        else if (item3 === 'nothing') { item3 = Key.name; slot = "3rd"; }
+        else if (item4 === 'nothing') { item4 = Key.name; slot = "4th"; }
+        else if (item5 === 'nothing') { item5 = Key.name; slot = "5th"; }
+
+        if (slot) {
+            gameFlags.robQuestAccepted = true;
+            updateUI();
+            showMessage(`Rob: Here is the key. It's in your ${slot} slot.`, "green");
+            const robCell = grid.find(c => c.bg && c.bg.includes('rob.png'));
+            if (robCell) {
+                robCell.message = ["Rob: Go do it!"];
+                robCell.messageIndex = 0;
+            }
+        } else {
+            showMessage("Rob: You don't have space for the key!", "red");
+        }
+        closeShop();
+        return;
+    }
+    if (name === 'No way!') {
+        showMessage("Rob: Your loss.", "white");
+        closeShop();
+        return;
+    }
     if (name === '1 Doller' && money >= 10) {
         money -= 9;
         updateUI();
@@ -1257,7 +1553,92 @@ function buyItem(name, cost) {
         closeShop();
         return;
     }
+    if (name === 'Throw Coin') {
+        if (money >= cost) {
+            money -= cost;
+            if (Math.random() < 0.1) {
+                money += 5;
+                showMessage("✨ The Water Spirits have blessed you! +$5 ✨", "gold");
+            } else {
+                showMessage("You threw a coin... nothing happened.", "white");
+            }
+            updateUI();
+            closeShop();
+        } else {
+            showMessage("Not enough money to make a wish!", "red");
+        }
+        return;
+    }
+    if (name === 'Add Money') {
+        closeShop();
+        setTimeout(() => {
+            openShop([
+                {name: 'Deposit $10'},
+                {name: 'Deposit $20'},
+                {name: 'Deposit $50'},
+                {name: 'Deposit $100'},
+                {name: 'Deposit All'}
+            ], "Select Deposit Amount");
+        }, 100);
+        return;
+    }
+    if (name.startsWith('Deposit $')) {
+        const amount = parseInt(name.replace('Deposit $', ''));
+        if (money >= amount) {
+            money -= amount;
+            bankMoney += amount;
+            localStorage.setItem('bankMoney', bankMoney);
+            updateUI();
+            showMessage(`Deposited $${amount}.`, "green");
+        } else {
+            showMessage("Not enough cash!", "red");
+        }
+        closeShop();
+        return;
+    }
+    if (name === 'Deposit All') {
+        if (money > 0) {
+            const amount = money;
+            money = 0;
+            bankMoney += amount;
+            localStorage.setItem('bankMoney', bankMoney);
+            updateUI();
+            showMessage(`Deposited $${amount}.`, "green");
+        } else {
+            showMessage("No cash to deposit!", "red");
+        }
+        closeShop();
+        return;
+    }
+    if (name === 'Take Money') {
+        if (bankMoney > 0) {
+            const amount = bankMoney;
+            money += amount;
+            bankMoney = 0;
+            localStorage.setItem('bankMoney', bankMoney);
+            updateUI();
+            showMessage(`Withdrew all $${amount}.`, "green");
+        } else {
+            showMessage("Bank is empty!", "red");
+        }
+        closeShop();
+        return;
+    }
     if (money >= cost) {
+        const validFits = ["Casual", "Street Wear", "Jersey", "White Tuxedo", "Your very own cloak!!!"];
+        if (validFits.includes(name)) {
+            if (!ownedFits.includes(name)) {
+                money -= cost;
+                ownedFits.push(name);
+                updateUI();
+                showMessage(`Bought ${name}! Press E to change fit.`, "green");
+            } else {
+                showMessage("You already own this outfit!", "orange");
+            }
+            closeShop();
+            return;
+        }
+
         let bought = false;
         if (item1 === 'nothing') { item1 = name; bought = true; }
         else if (item2 === 'nothing') { item2 = name; bought = true; }
@@ -1269,8 +1650,6 @@ function buyItem(name, cost) {
             money -= cost;
             updateUI();
             showMessage(`Bought ${name}!`, "green");
-            const validFits = ["Casual", "Street Wear", "Jersey", "White Tuxedo"];
-            if (validFits.includes(name) && !ownedFits.includes(name)) ownedFits.push(name);
             closeShop();
             return;
         }
@@ -1281,13 +1660,18 @@ function buyItem(name, cost) {
 }
 
 function setupDowntownNPCs() {
+    let cloakMsg = ["Cloak Man: I am the cloak man from the world's beyond. (Click again)", "I sell mystical items here... (Click again)", "I collect them from other universes!"];
+    if (fit === "Your very own cloak!!!") {
+        cloakMsg.unshift("Cloak Man: Nice robe. (Click again)");
+    }
+
     if (gameFlags.fireyKilled) {
         setCell(0, 1, '/assets/npcs/cloak_man.png', { solid: true, 
             isShop: true, 
             shopName: "Magic Shop (Items aren't really magic)",
             shopItems: [{name: 'Fish', price: 5}, {name: 'SMUB', price: 50000}, {name: '1 Doller', price: 10}],
             isSign: true, 
-            message: ["Cloak Man: I am the cloak man from the world's beyond. (Click again)", "I sell mystical items here... (Click again)", "I collect them from other universes!"] 
+            message: cloakMsg 
         });
         setCell(0, 5, '/assets/npcs/bobby.png', { solid: true,
             isShop: true, 
