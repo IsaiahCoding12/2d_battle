@@ -6,6 +6,24 @@ body {
     font-optical-sizing: auto;
     font-weight: 500;
     font-style: normal;
+    background-color: #ffffff;
+    color: #000000;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+body.dark-mode {
+    background-color: #000000;
+    color: #ffffff;
+}
+
+#directions-thingy {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 1000;
+    max-width: 160px;
+    height: auto;
+    pointer-events: none;
 }
 
 .lora-normal {
@@ -32,6 +50,10 @@ body {
     display: grid;
     border: 2px solid black;
     width: fit-content;
+}
+
+body.dark-mode .grid {
+    border-color: white;
 }
 
 .grid-cell {

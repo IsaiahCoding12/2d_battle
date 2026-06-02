@@ -9,6 +9,27 @@
 // CONFIG / GLOBALS
 // -----------------------------
 const CELL_SIZE = 40;
+const NPC_SKINS = [
+    '/assets/npcs/bobby.png',
+    '/assets/npcs/cloak_man.png',
+    '/assets/npcs/dummy.png',
+    '/assets/npcs/farmer.png',
+    '/assets/npcs/firey.png',
+    '/assets/npcs/fred.png',
+    '/assets/npcs/jay.png',
+    '/assets/npcs/joe.png',
+    '/assets/npcs/luke.png',
+    '/assets/npcs/peter.png',
+    '/assets/npcs/ricky.png',
+    '/assets/npcs/rob.png',
+    '/assets/npcs/slime.png'
+];
+const ARENA_ENEMY_SKINS = ['/assets/npcs/firey.png', '/assets/npcs/slime.png'];
+const ARENA_DIFFICULTIES = [
+    { name: 'easy', hp: 40, damage: 5, speed: 420 },
+    { name: 'medium', hp: 70, damage: 10, speed: 300 },
+    { name: 'hard', hp: 110, damage: 15, speed: 180 }
+];
 
 let respawnx = 9;
 let respawny = 9;
@@ -32,6 +53,7 @@ let gridContainer = null;
 let mouseRow = null;
 let mouseCol = null;
 let showCoords = false;
+let darkMode = false;
  
 const player = {
     x: 9,
@@ -48,10 +70,12 @@ const player = {
 let rows = 19;
 let cols = 19;
 let grid = []; // array of cell metadata length rows*cols
+let door2s = []; // offscreen doors at virtual row/col positions
 const keysPressed = {};
 
 let bjax = 10;
 let bjay = 19;
+let arenaReturn = false;
 let b1rx = 1;
 let b1ry = 15;
 let msx = 1;
@@ -106,14 +130,6 @@ document.addEventListener("DOMContentLoaded", () => {
     createMessageBox()
     createCoordsDisplay();
 
-    // Background Music
-    bgm = new Audio('/assets/town.mp3');
-    bgm.loop = true;
-    bgm.addEventListener('ended', function() {
-        this.currentTime = 0;
-        this.play();
-    }, false);
-    createStartScreen();
 
     gridContainer = document.querySelector(".grid");
     if (!gridContainer) {
@@ -172,6 +188,12 @@ function createPlayer(container) {
 // =============================
 function handleKeyPress(event) {
     keysPressed[event.key] = true;
+
+    if (event.key.toLowerCase() === 'p' && !event.repeat) {
+        darkMode = !darkMode;
+        document.body.classList.toggle('dark-mode', darkMode);
+        showMessage(darkMode ? "Dark mode on" : "Dark mode off");
+    }
 
     if (event.key === 'Tab') {
         event.preventDefault();
@@ -271,8 +293,12 @@ function update(currentTime) {
         showMessage(item1 + " was eqiupped!")
     }
 
-    // bounds
-    if (newX < 0 || newX >= cols || newY < 0 || newY >= rows) return;
+    // offscreen door2 transitions
+    if (newX < 0 || newX >= cols || newY < 0 || newY >= rows) {
+        const door2 = [...door2s].reverse().find(door => door.row === newY && door.col === newX);
+        if (door2) loadLevel(door2.targetLevel);
+        return;
+    }
 
     // solid check
     const targetIndex = newY * cols + newX;
@@ -377,6 +403,7 @@ function gameLoop(timestamp) {
 function initiateGrid(r, c, value, container) {
     // clear previous data & DOM
     grid = [];
+    door2s = [];
     while (container.firstChild) container.removeChild(container.firstChild);
 
     // setup CSS grid sizing
@@ -580,6 +607,23 @@ function setCells(startRow, startCol, endRow, endCol, value, properties = {}) {
     }
 }
 
+function setDoor2(row, col, targetLevel) {
+    door2s.push({ row, col, targetLevel });
+}
+
+function setDoor2Cells(startRow, startCol, endRow, endCol, targetLevel) {
+    const r1 = Math.min(startRow, endRow);
+    const r2 = Math.max(startRow, endRow);
+    const c1 = Math.min(startCol, endCol);
+    const c2 = Math.max(startCol, endCol);
+
+    for (let row = r1; row <= r2; row++) {
+        for (let col = c1; col <= c2; col++) {
+            setDoor2(row, col, targetLevel);
+        }
+    }
+}
+
 // =============================
 // MESSAGE BOX
 // =============================
@@ -761,7 +805,7 @@ function updateCrosshair() {
     cursorImage.style.top = py + "px";
 }
 
-function spawnMonster(row, col, hp, damage, skin) {
+function spawnMonster(row, col, hp, damage, skin, options = {}) {
     const index = row * cols + col;
     if (!grid[index]) return;
 
@@ -781,7 +825,10 @@ function spawnMonster(row, col, hp, damage, skin) {
         hp: hp,
         damage: damage,
         element: el,
-        lastHitTime: -1000
+        lastHitTime: -1000,
+        reward: options.reward,
+        defeatMessage: options.defeatMessage,
+        difficultyName: options.difficultyName
     };
 }
 
@@ -902,12 +949,14 @@ function shoot(row, col) {
 
         cell.monster.hp -= damage;
         if (cell.monster.hp <= 0) {
-            showMessage("Monster defeated! +20 gold!", "gold", true);
-            money += 20;
+            const reward = cell.monster.reward ?? 20;
+            showMessage(cell.monster.defeatMessage || `Monster defeated! +${reward} gold!`, "gold", true);
+            money += reward;
             updateUI();
             if (cell.monster.isFirey) {
                 gameFlags.fireyKilled = true;
-                setCells(0, 18, 10, 18, '/assets/blocks/stone.png', { solid: false , isDoor: true, targetLevel: 'main'});
+                setCells(0, 18, 10, 18, '/assets/blocks/stone.png', { solid: false });
+                setDoor2Cells(0, 19, 10, 19, 'main');
                 setupDowntownNPCs();
             }
             if (cell.monster.isVaultSlime) {
@@ -919,6 +968,10 @@ function shoot(row, col) {
                     updateUI();
                     showMessage("The door opens... You found $200 and gave half to Rob.", "green");
                 }
+            }
+            if (cell.monster.isArenaEnemy) {
+                arenaReturn = true;
+                setCell(9, 5, '/assets/blocks/door_bottom.png', { solid: false, isDoor: true, targetLevel: 'Bank/Job Area' });
             }
             if (cell.monster.element) cell.monster.element.remove();
             cell.monster = null;
@@ -1012,7 +1065,7 @@ async function moveMonsterTo(startRow, startCol, targetRow, targetCol, duration)
     }
 }
 
-async function follow(startRow, startCol) {
+async function follow(startRow, startCol, stepSpeed = 300) {
     let r = startRow;
     let c = startCol;
 
@@ -1030,7 +1083,7 @@ async function follow(startRow, startCol) {
             continue;
         }
 
-        await moveMonsterTo(r, c, targetR, targetC, dist * 300);
+        await moveMonsterTo(r, c, targetR, targetC, dist * stepSpeed);
 
         r = targetR;
         c = targetC;
@@ -1062,16 +1115,20 @@ function loadLevel(levelName) {
         
         setCell(13, 3, '/assets/blocks/door_bottom.png', { solid: false, isDoor: true, targetLevel: 'store' });
         setCell(12, 3, '/assets/blocks/door_top.png', { solid: false, isDoor: true, targetLevel: 'store' });
-        setCells(18, 7, 18, 11, '/assets/blocks/street_side.png', { solid: false, isDoor: true, targetLevel: 'cliffs' });
-        setCells(18, 0, 18, 6, '/assets/blocks/stone.png', { solid: false, isDoor: true, targetLevel: 'cliffs' });
-        setCells(18, 12, 18, 18, '/assets/blocks/stone.png', { solid: false, isDoor: true, targetLevel: 'cliffs' });
-        setCells(0, 0, 18, 0 , '/assets/blocks/stone.png', { solid: false, isDoor: true, targetLevel: 'downtown' });
-        setCells(0, 18, 18, 18, '/assets/blocks/stone.png', { solid: false, isDoor: true, targetLevel: 'building1'});
+        setCells(18, 7, 18, 11, '/assets/blocks/street_side.png', { solid: false });
+        setDoor2Cells(19, 0, 19, 18, 'cliffs');
+        setCells(18, 0, 18, 6, '/assets/blocks/stone.png', { solid: false });
+        setCells(18, 12, 18, 18, '/assets/blocks/stone.png', { solid: false });
+        setCells(0, 0, 18, 0 , '/assets/blocks/stone.png', { solid: false });
+        setDoor2Cells(0, -1, 18, -1, 'downtown');
+        setCells(0, 18, 18, 18, '/assets/blocks/stone.png', { solid: false });
+        setDoor2Cells(0, 19, 18, 19, 'building1');
         setCells(10, 2, 10, 4, '/assets/blocks/glass.png', { solid: true });
         setCell(14, 1, '/assets/blocks/sign.png', { isSign: true, message: "Store inside.", solid: false });
 
-        setCells(0, 0, 0, 18, '/assets/blocks/stone.png', { solid: false , isDoor: true, targetLevel: 'Bank/Job Area'});
-        setCells(0, 7, 0, 11, '/assets/blocks/street_side.png', { solid: false , isDoor: true, targetLevel: 'Bank/Job Area'});
+        setCells(0, 0, 0, 18, '/assets/blocks/stone.png', { solid: false });
+        setDoor2Cells(-1, 0, -1, 18, 'Bank/Job Area');
+        setCells(0, 7, 0, 11, '/assets/blocks/street_side.png', { solid: false });
 
     } else if (levelName === 'store') {
         rows = 11;
@@ -1118,7 +1175,8 @@ function loadLevel(levelName) {
         setCells(11, 0, 11, 13, '/assets/blocks/dirt.png', { solid: false });
         setCell(9, 8, '/assets/blocks/sign.png', { solid: false , isSign: true, message: 'The cliffs...'});
         setCells(12, 0, 14, 19, '/assets/blocks/dirt.png', { solid: true })
-        setCells(0, 0 , 0 , 19, '/assets/blocks/grass.png', { solid: false , isDoor: true, targetLevel: 'main'});
+        setCells(0, 0 , 0 , 19, '/assets/blocks/grass.png', { solid: false });
+        setDoor2Cells(-1, 0, -1, 19, 'main');
         setCell(3, 4, '/assets/npcs/farmer.png', { solid: true, isSign: true, message: 'Farmer: So peaceful, innit it. (sigh)'});
     } else if (levelName === 'downtown') {
         rows = 11;
@@ -1129,7 +1187,10 @@ function loadLevel(levelName) {
         if (!playerElement) createPlayer(gridContainer);
         player.x = 18; player.y = 5; 
 
-        setCells(0, 18, 10, 18, '/assets/blocks/stone.png', { solid: false , isDoor: true, targetLevel: 'main'});
+        setCells(0, 18, 10, 18, '/assets/blocks/stone.png', { solid: false });
+        if (gameFlags.fireyKilled) {
+            setDoor2Cells(0, 19, 10, 19, 'main');
+        }
         setCells(1, 0, 1, 14, '/assets/blocks/dirt.png', { solid: true});
         setCell(3, 13, '/assets/blocks/sign.png', { solid: false , isSign: true, message: 'Market...' });
         setCell(0, 14, '/assets/blocks/dirt.png', { solid: true});
@@ -1141,7 +1202,6 @@ function loadLevel(levelName) {
         if (!gameFlags.fireyKilled) {
             if (!gameFlags.downtownIntro) {
                 showMessage('Monsters attack! Fight back with your weapons!', 'red');
-                setCells(10, 18, 0, 18, '/assets/blocks/stone.png', { solid: false, isDoor: false} )
                 gameFlags.downtownIntro = true;
             }
             spawnMonster(5, 5, 100, 20, '/assets/npcs/firey.png');
@@ -1160,13 +1220,16 @@ function loadLevel(levelName) {
         initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
         if (!playerElement) createPlayer(gridContainer);
         player.x = b1rx; player.y = b1ry;
-        setCells(0, 0, 18, 0, '/assets/blocks/stone.png', {solid: false, isDoor: true, targetLevel: 'main'});
-        setCells(15, 14, 18, 14, '/assets/blocks/stone.png', {solid: false, isDoor: true, targetLevel: 'Midday_City_Mall'});
+        setCells(18, 0, 18, 0, '/assets/blocks/stone_bricks', {solid: true});
+        setCells(0, 0, 18, 0, '/assets/blocks/stone.png', {solid: false});
+        setDoor2Cells(0, -1, 18, -1, 'main');
+        setCells(15, 14, 18, 14, '/assets/blocks/stone.png', {solid: false});
+        setDoor2Cells(15, 15, 18, 15, 'Midday_City_Mall');
         setCells(14, 7, 0, 14, '/assets/blocks/brick.png', {solid: true});
         setCells(12, 0, 12, 6, '/assets/blocks/modern_brick.png', {solid: true});
         setCell(14, 9, '/assets/blocks/door_bottom.png', {solid: false, isDoor: true, targetLevel: 'Building1(in)'});
         setCell(13, 9, '/assets/blocks/door_top.png', {solid: false, isDoor: true, targetLevel: 'Building1(in)'});
-        setCell(15, 12, '/assets/blocks/sign.png', {solid:false, isSign: true, message: 'Midday City Mall to the right!'}) 
+        setCell(15, 12, '/assets/blocks/sign.png', {solid:false, isSign: true, message: 'Midday City Mall is to the west.  Casino is to the south.'});
 
         let peterMsg = [];
         if (gameFlags.peterQuestComplete) {
@@ -1212,7 +1275,10 @@ function loadLevel(levelName) {
                 }
             ];
         }
+        setCells(18, 0, 18, 18, '/assets/blocks/modern_brick.png', {solid: true});
         setCell(13, 4, '/assets/npcs/peter.png', {solid: true, isSign: true, message: peterMsg});
+        setCells(18, 4, 18, 7, '/assets/blocks/stone.png');
+        setDoor2Cells(19, 4, 19, 7, 'casino_outside');
     } else if (levelName === 'Building1(in)') {
         rows = 11;
         cols = 11;
@@ -1276,7 +1342,8 @@ function loadLevel(levelName) {
         b1ry = 17;
         player.x = msx; player.y = msy;
 
-        setCells(0, 0, 18, 0, '/assets/blocks/stone.png', {solid: false, isDoor: true, targetLevel: 'building1'});
+        setCells(0, 0, 18, 0, '/assets/blocks/stone.png', {solid: false});
+        setDoor2Cells(0, -1, 18, -1, 'building1');
         setCells(13, 0, 3, 18, '/assets/blocks/brick.png', {solid: true});
         setCells(13, 7, 11, 11, '/assets/blocks/stone.png', {solid: false, isDoor: true, targetLevel: 'Midday_City_Mall(in)'});
         setCell(11,8, '/assets/blocks/MCM_sign_1.png', {solid: false, isSign: true, message: 'Welcome to the Midday City Mall!'});
@@ -1293,7 +1360,8 @@ function loadLevel(levelName) {
         if (!playerElement) createPlayer(gridContainer);
         player.x = 10; player.y = 20;
 
-        setCells(20, 0, 20, 20, '/assets/blocks/stone.png', {solid: false, isDoor: true, targetLevel: 'Midday_City_Mall'});
+        setCells(20, 0, 20, 20, '/assets/blocks/stone.png', {solid: false});
+        setDoor2Cells(21, 9, 21, 11, 'Midday_City_Mall');
         setCells(20, 0, 20, 8, '/assets/blocks/brick.png', {solid: true});
         setCells(20, 12, 20, 20, '/assets/blocks/brick.png', {solid: true});
         setCells(0, 0, 19, 0, '/assets/blocks/brick.png', {solid: true});
@@ -1338,9 +1406,18 @@ function loadLevel(levelName) {
         initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
         if (!playerElement) createPlayer(gridContainer);
         player.x = bjax; player.y = bjay;
-
+        if (arenaReturn) {
+            player.x = 0;
+            player.y = 7;
+            arenaReturn = false;
+        }
+        setCell(5 ,1, '/assets/blocks/sign.png', {solid: true, isSign: true, message: 'Battle Arena entrance is right beside me! Fight if you dare!'})
+        setCells(9, 0, 5, 0, '/assets/blocks/stone.png', {solid: false});
+        setDoor2Cells(5, -1, 9, -1, 'Arena');
+        setCell(6, 1, '/assets/blocks/stone.png', {solid: false});
         setCells(4, 0, 4, 20, '/assets/blocks/modern_brick.png', {solid: true});
-        setCells(20, 0, 20, 20, '/assets/blocks/stone.png', { solid: false, isDoor: true, targetLevel: 'main' });
+        setCells(20, 0, 20, 20, '/assets/blocks/stone.png', { solid: false });
+        setDoor2Cells(21, 0, 21, 20, 'main');
         setCells(0, 3, 8, 17, '/assets/blocks/brick.png', { solid: true});
         setCells(8, 9, 6, 11, '/assets/blocks/stone.png', {solid: false, isDoor: true, targetLevel: 'Bank'});
         setCell(5, 8, '/assets/blocks/B_sign.png', { solid: true, isSign: true, message:'Midday Bank'});
@@ -1385,7 +1462,8 @@ function loadLevel(levelName) {
         player.x = 11; player.y = 10;
         if (!playerElement) createPlayer(gridContainer);
 
-        setCells(12, 0, 12, 22, '/assets/blocks/wood.png', {solid: false, isDoor: true, targetLevel: 'Bank/Job Area'});
+        setCells(12, 0, 12, 22, '/assets/blocks/wood.png', {solid: false});
+        setDoor2Cells(13, 0, 13, 22, 'Bank/Job Area');
         setCells(0, 9, 3, 9, '/assets/blocks/modern_brick.png', {solid: true});
         setCells(0, 13, 3, 13, '/assets/blocks/modern_brick.png', {solid: true});
         setCells(3, 9, 3, 13, '/assets/blocks/modern_brick.png', {solid: true});
@@ -1450,6 +1528,42 @@ function loadLevel(levelName) {
             showMessage("Ambush! Defeat the slimes!", "red");
         }
 
+    } else if (levelName === 'Arena') {
+        rows = 10;
+        cols = 10;
+        initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
+        if (!playerElement) createPlayer(gridContainer);
+        player.x = 5; player.y = 8;
+
+        setCells(0, 0, 0, 9, '/assets/blocks/brick.png', { solid: true });
+        setCells(9, 0, 9, 9, '/assets/blocks/brick.png', { solid: true });
+        setCells(0, 0, 9, 0, '/assets/blocks/brick.png', { solid: true });
+        setCells(0, 9, 9, 9, '/assets/blocks/brick.png', { solid: true });
+        setCell(9, 5, '/assets/blocks/brick.png', { solid: true });
+
+        const difficulty = ARENA_DIFFICULTIES[Math.floor(Math.random() * ARENA_DIFFICULTIES.length)];
+        const skinPool = Math.random() < 0.5 ? ARENA_ENEMY_SKINS : NPC_SKINS;
+        const skin = skinPool[Math.floor(Math.random() * skinPool.length)];
+
+        spawnMonster(3, 5, difficulty.hp, difficulty.damage, skin, {
+            reward: 10,
+            defeatMessage: `Arena enemy defeated! +10 coins!`,
+            difficultyName: difficulty.name
+        });
+        if (grid[3 * cols + 5].monster) grid[3 * cols + 5].monster.isArenaEnemy = true;
+        follow(3, 5, difficulty.speed);
+        showMessage(`Arena fight! ${difficulty.name} enemy. Win $10!`, "orange");
+    } else if (levelName === 'casino_outside') {
+        rows = 11;
+        cols = 11;
+        initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
+        if (!playerElement) createPlayer(gridContainer);
+        player.x; player.y = 0;
+        setCells(4, 0, 4, 10, '/assets/blocks/leaves.png', {solid: true});
+        setCells(0, 4, 10, 6, '/assets/blocks/modern_brick.png');
+        setCells(5, 3, 10, 0, '/assets/blocks/brick.png', {solid: true});
+        setCells(5, 7, 10, 10, '/assets/blocks/brick.png', {solid: true});
+        setCell(1, 1, '/assets/npcs/ricky.png', {solid: true, is});
     }
 
     if (!cursorImage) setupCrosshair(gridContainer);
