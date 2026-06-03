@@ -48,7 +48,7 @@ body.dark-mode {
 
 .grid {
     display: grid;
-    border: 2px solid black;
+    border: 3px solid black;
     width: fit-content;
 }
 
@@ -61,7 +61,6 @@ body.dark-mode .grid {
     height: 40px;
     transition: transform 0.1s ease-in-out;
     position: relative;
-    box-sizing: border-box;
 }
 
 #cursor-image {
