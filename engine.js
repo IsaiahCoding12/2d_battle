@@ -210,6 +210,7 @@ function handleKeyPress(event) {
         const attempt = prompt("twin what = da password");
         if (attempt === 'JESUISFROMAGE') {
             showMessage("TUFF TUFF TUFF SAHUR YOU KNOW THE PASSWORD TWINCHACO!!!");
+            console.log("Admin was turned on")
             isStart = false;
             skipTutorial = true;   // ← stops the tutorial loop immediately
             money = 10000000;
@@ -223,6 +224,7 @@ function handleKeyPress(event) {
             hp = "0 because your a dumbass cheater!!!!";
             money = "nothing cos youre also a brokie";
             admin = "I AM A BUTTHOLE";
+            console.log("Admin password was incorrect")
             updateUI();   // ← also update here so it shows
             showMessage('not tuff twin');
             rows = 0;
@@ -231,11 +233,11 @@ function handleKeyPress(event) {
         }
     }
 
-    if (event.key === '1') { showMessage("You equipped " + item1); equipped = item1; }
-    if (event.key === '2') { showMessage("You equipped " + item2); equipped = item2; }
-    if (event.key === '3') { showMessage("You equipped " + item3); equipped = item3; }
-    if (event.key === '4') { showMessage("You equipped " + item4); equipped = item4; }
-    if (event.key === '5') { showMessage("You equipped " + item5); equipped = item5; }
+    if (event.key === '1') { showMessage("You equipped " + item1); equipped = item1; console.log(item1 + ' was equipped');}
+    if (event.key === '2') { showMessage("You equipped " + item2); equipped = item2; console.log(item2 + ' was equipped');}
+    if (event.key === '3') { showMessage("You equipped " + item3); equipped = item3; console.log(item3 + ' was equipped');}
+    if (event.key === '4') { showMessage("You equipped " + item4); equipped = item4; console.log(item4 + ' was equipped');}
+    if (event.key === '5') { showMessage("You equipped " + item5); equipped = item5; console.log(item5 + ' was equipped');}
 
     if (event.key === 'l') showMessage("Clothes: " + fit + ", Job: " + job + ", Money in bank: " + bankMoney);
 
@@ -898,6 +900,7 @@ function spawnMonster(row, col, hp, damage, skin, options = {}) {
 // SHOOT (writes "bang" to readout)
 // =============================
 function shoot(row, col) {
+    console.log('Shooting happened');
     const index = row * cols + col;
     const cell = grid[index];
     let damage = 0;
@@ -985,7 +988,7 @@ function shoot(row, col) {
     } else if (['Slice with Cheese', 'Slice with Pepperoni', 'Slice with Black Olives'].includes(equipped)) {
         hp += 10;
         updateUI();
-        showMessage("You ate a slice of pizza.", "green");
+        showMessage("You ate a slice of pizza.", "gold");
         if (item1 === equipped) item1 = 'nothing';
         else if (item2 === equipped) item2 = 'nothing';
         else if (item3 === equipped) item3 = 'nothing';
