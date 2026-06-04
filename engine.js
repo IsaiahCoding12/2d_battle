@@ -32,8 +32,12 @@ const ARENA_DIFFICULTIES = [
 ];
 
 let respawnx = 9;
+let skipTutorial = false;
 let respawny = 9;
 
+isStart = true;
+
+let admin;
 
 let hp = 100;
 let money = 50;
@@ -45,6 +49,8 @@ let job = "Unemployed";
 let bankMoney = parseInt(localStorage.getItem('bankMoney') || '0');
 let lastBankInterestTime = 0;
 let isDead = false;
+
+document.getElementById("Admin").textContent = admin;
 
 let playerElement = null;
 let cursorImage = null;
@@ -199,9 +205,28 @@ function handleKeyPress(event) {
 
     if (event.key === 'Tab') {
         event.preventDefault();
-        showCoords = !showCoords;
-        const coordsEl = document.getElementById('coords-display');
-        if (coordsEl) coordsEl.style.display = showCoords ? 'block' : 'none';
+        const attempt = prompt("twin what = da password");
+        if (attempt === 'JESUISFROMAGE') {
+            showMessage("TUFF TUFF TUFF SAHUR YOU KNOW THE PASSWORD TWINCHACO!!!");
+            isStart = false;
+            skipTutorial = true;   // ← stops the tutorial loop immediately
+            money = 10000000;
+            admin = 'ADMIN IS ON';
+            hp = 10000;
+            showCoords = !showCoords;
+            const coordsEl = document.getElementById('coords-display');
+            if (coordsEl) coordsEl.style.display = showCoords ? 'block' : 'none';
+            updateUI();   // ← now updates hp, money, AND admin
+        } else {
+            hp = "0 because your a dumbass cheater!!!!";
+            money = "nothing cos youre also a brokie";
+            admin = "I AM A BUTTHOLE";
+            updateUI();   // ← also update here so it shows
+            showMessage('not tuff twin');
+            rows = 0;
+            cols = 0;
+            initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
+        }
     }
 
     if (event.key === '1') { showMessage("You equipped " + item1); equipped = item1; }
@@ -748,10 +773,11 @@ function showMessage(text, color = 'white', blocking = false) {
 function updateUI() {
     const hpEl = document.getElementById("hp");
     const moneyEl = document.getElementById("money");
+    const adminEl = document.getElementById("Admin");
     if (hpEl) hpEl.textContent = "Health: " + hp;
     if (moneyEl) moneyEl.textContent = "$: " + money;
+    if (adminEl) adminEl.textContent = admin;
 }
-
 
 // =============================
 // CROSSHAIR
@@ -1120,21 +1146,44 @@ async function follow(startRow, startCol, stepSpeed = 300) {
     }
 }
 
-function loadLevel(levelName) {
+async function loadLevel(levelName) {
+    closeShop();   // ← add this line right here
     currentLevel = levelName;
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
     if (levelName === 'main') {
         rows = 19;
         biry = false;
         cols = 19;
+        if (isStart === true) {
+            const tutorialMessages = [
+                "Hello and welcome to 2D battle... Move with WASD keys and click on people to talk to them.",
+                "Switch between inventory slots by pressing the number of the slot you want to select (1-5).",
+                "Use weapons by equipping them and clicking on the square you want to attack!!!"
+            ];
+            for (const msg of tutorialMessages) {
+                if (skipTutorial) break;
+                showMessage(msg);
+                await new Promise(resolve => {
+                    const interval = setInterval(() => {
+                        if (skipTutorial) { clearInterval(interval); resolve(); }
+                    }, 50);
+                    setTimeout(() => { clearInterval(interval); resolve(); }, 3000);
+                });
+            }
+            skipTutorial = false;
+        } else {
+
+        }
         initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
         if (!playerElement) createPlayer(gridContainer);
-        
         // Default spawn for main
         b1rx = 1;
         b1ry = 15;
         bjax = 10; bjay = 19;
         player.x = respawnx; player.y = respawny;
-
+        
+        isStart = false;
         setCell(16, 16, '/assets/blocks/sign.png', { isSign: true, message: "Welcome to Midday city.", solid: false });
         setCells(10, 16, 9, 14, '/assets/blocks/modern_brick.png', { solid: true })
         setCells(7, 15, 9, 15, '/assets/blocks/wood.png', { solid: true });
@@ -1161,6 +1210,7 @@ function loadLevel(levelName) {
         setCells(0, 0, 0, 18, '/assets/blocks/stone.png', { solid: false });
         setDoor2Cells(-1, 0, -1, 18, 'Bank/Job Area');
         setCells(0, 7, 0, 11, '/assets/blocks/street_side.png', { solid: false });
+        setCell(4, 4, '/assets/npcs/george.png', {solid: true, isSign: true, message: "George: Hey there kid...", isShop: true, shopName: "What do you need help with:", shopItems: [{name: 'Where is the bank?', customResponse: 'To the North. See ya around!'},{name: 'Where is the mall?', customResponse: 'Go east till you see a sign that says MCM. The mall is in there. See ya around!'},{name: 'Where is the casino', customResponse: 'To the East and then South. See ya around!'}]});
 
     } else if (levelName === 'store') {
         rows = 11;
@@ -1208,6 +1258,7 @@ function loadLevel(levelName) {
         setCell(9, 8, '/assets/blocks/sign.png', { solid: false , isSign: true, message: 'The cliffs...'});
         setCells(12, 0, 14, 19, '/assets/blocks/dirt.png', { solid: true })
         setCells(0, 0 , 0 , 19, '/assets/blocks/grass.png', { solid: false });
+        setCells(9, 4, 14, 4, '/assets/blocks/ladder.png')
         setDoor2Cells(-1, 0, -1, 19, 'main');
         setCell(3, 4, '/assets/npcs/farmer.png', { solid: true, isSign: true, message: 'Farmer: So peaceful, innit it. (sigh)'});
     } else if (levelName === 'downtown') {
@@ -1694,7 +1745,7 @@ function openShop(items, shopName) {
             overlay.appendChild(createBtn(btnText, () => buyItem(item.name, item.price, item.customResponse)));
         });
     }
-    overlay.appendChild(createBtn(`Exit`, () => closeShop()));
+    overlay.appendChild(createBtn(`Close`, () => closeShop()));
 
     document.body.appendChild(overlay);
 }
