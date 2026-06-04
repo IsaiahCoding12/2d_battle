@@ -8,6 +8,10 @@
 // -----------------------------
 // CONFIG / GLOBALS
 // -----------------------------
+let isStart = sessionStorage.getItem('tutorial') === 'true';
+sessionStorage.removeItem('tutorial');
+console.log('isStart:', isStart);
+
 const CELL_SIZE = 40;
 const NPC_SKINS = [
     '/assets/npcs/bobby.png',
@@ -34,8 +38,6 @@ const ARENA_DIFFICULTIES = [
 let respawnx = 9;
 let skipTutorial = false;
 let respawny = 9;
-
-isStart = true;
 
 let admin;
 
@@ -303,21 +305,25 @@ function update(currentTime) {
     if (keysPressed['w'] || keysPressed['ArrowUp']) {
         newY = player.y - 1;
         moved = true;
+        console.log('Player moved up');
     } else if (keysPressed['s'] || keysPressed['ArrowDown']) {
         newY = player.y + 1;
         moved = true;
+        console.log('Player moved down');
     } else if (keysPressed['a'] || keysPressed['ArrowLeft']) {
         newX = player.x - 1;
         if (playerElement) playerElement.style.transform = 'scaleX(-1)';
         moved = true;
         isHorizontalMove = true;
+        console.log('Player moved left');
     } else if (keysPressed['d'] || keysPressed['ArrowRight']) {
         newX = player.x + 1;
         if (playerElement) playerElement.style.transform = 'scaleX(1)';
         moved = true;
         isHorizontalMove = true;
+        console.log('Player moved right');
     } else if (keysPressed['z']){
-        showMessage(item1 + " was eqiupped!")
+        showMessage(item1 + " was eqiupped!");
     }
 
     // offscreen door2 transitions
@@ -995,6 +1001,7 @@ function shoot(row, col) {
     else if (equipped === AK47.name) damage = AK47.damage;
     else if (equipped === Uzi.name) damage = Uzi.damage;
     else if (equipped === M4.name) damage = M4.damage;
+    else if (equipped === SMUB.name) damage = SMUB.damage; 
     if (damage > 0 && blockShoot === false) {
         showMessage("Bang!", "red"); 
     }
@@ -1155,6 +1162,7 @@ async function loadLevel(levelName) {
         rows = 19;
         biry = false;
         cols = 19;
+        console.log('in main, isStart is:', isStart);
         if (isStart === true) {
             const tutorialMessages = [
                 "Hello and welcome to 2D battle... Move with WASD keys and click on people to talk to them.",
@@ -1175,6 +1183,7 @@ async function loadLevel(levelName) {
         } else {
 
         }
+        isStart = false;
         initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
         if (!playerElement) createPlayer(gridContainer);
         // Default spawn for main
@@ -1183,7 +1192,6 @@ async function loadLevel(levelName) {
         bjax = 10; bjay = 19;
         player.x = respawnx; player.y = respawny;
         
-        isStart = false;
         setCell(16, 16, '/assets/blocks/sign.png', { isSign: true, message: "Welcome to Midday city.", solid: false });
         setCells(10, 16, 9, 14, '/assets/blocks/modern_brick.png', { solid: true })
         setCells(7, 15, 9, 15, '/assets/blocks/wood.png', { solid: true });
