@@ -29,6 +29,11 @@ let respawnx = 9;
 let skipTutorial = false;
 let respawny = 9;
 
+let dtrx = 18;
+let dtry = 5;
+let icrx = 12;
+let icry = 6;
+let has_found_treasure = false;
 let admin;
 let rfi = false;
 let hp = 100;
@@ -184,8 +189,12 @@ function handleKeyPress(event) {
         event.preventDefault();
         const attempt = prompt("twin what = da password");
         if (attempt === 'JESUISFROMAGE') {
+            gameFlags.fireyKilled = true;
             showMessage("TUFF TUFF TUFF SAHUR YOU KNOW THE PASSWORD TWINCHACO!!!");
             isStart = false;
+            ownedFits.push("Jersey");
+            ownedFits.push("Street_Wear");
+            ownedFits.push("White_Tuxedo");
             skipTutorial = true;
             money = 10000000;
             admin = 'ADMIN IS ON';
@@ -426,6 +435,7 @@ function findDaCash() {
     money += 2000;
     updateUI();
     setCell(7, 6, '/assets/blocks/grass.png', { solid: false });
+    has_found_treasure = true;
 }
 
 // =============================
@@ -882,6 +892,7 @@ function shoot(row, col) {
             if (cell.monster.isFirey) {
                 gameFlags.fireyKilled = true;
                 setCells(0, 18, 10, 18, '/assets/blocks/stone.png', { solid: false });
+                setDoor2Cells(0, -1, 10,- 1, 'ice_cream(outside)');
                 setDoor2Cells(0, 19, 10, 19, 'main');
                 setupDowntownNPCs();
             }
@@ -997,6 +1008,10 @@ async function loadLevel(levelName) {
         rfi = false;
         biry = false;
         cols = 19;
+        icrx = 12;
+        dtrx = 18;
+        dtry = 5;
+        icry = 6;
         if (isStart === true) {
             const tutorialMessages = [
                 "Hello and welcome to 2D battle... Move with WASD keys and click on people to talk to them.",
@@ -1128,29 +1143,33 @@ async function loadLevel(levelName) {
         respawnx = 1; respawny = 8;
         initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
         if (!playerElement) createPlayer(gridContainer);
-        player.x = 18; player.y = 5;
+        player.x = dtrx; player.y = dtry;
 
         setCells(0, 18, 10, 18, '/assets/blocks/stone.png', { solid: false });
         if (gameFlags.fireyKilled) setDoor2Cells(0, 19, 10, 19, 'main');
+        if (gameFlags.fireyKilled) setDoor2Cells(0, -1, 10,- 1, 'ice_cream(outside)');
         setCells(1, 0, 1, 14, '/assets/blocks/dirt.png', { solid: true });
         setCell(3, 13, '/assets/blocks/sign.png', { solid: false, isSign: true, message: 'Market...' });
         setCell(0, 14, '/assets/blocks/dirt.png', { solid: true });
         setCells(7, 2, 5, 4, '/assets/blocks/leaves.png', { solid: false, overhead: true });
         setCells(8, 3, 9, 3, '/assets/blocks/wood.png', { solid: true });
 
-        setupDowntownNPCs();
+        dtrx = 18;
+        dtry = 5;
 
+        setupDowntownNPCs();
         if (!gameFlags.fireyKilled) {
             if (!gameFlags.downtownIntro) {
-                showMessage('Monsters attack! Fight back with your weapons!', 'red');
+                showMessage(' A monster attacks! Fight back with your weapons!', 'red');
                 gameFlags.downtownIntro = true;
             }
             spawnMonster(5, 5, 100, 20, '/assets/npcs/firey.png');
             const idx = 5 * cols + 5;
             if (grid[idx] && grid[idx].monster) grid[idx].monster.isFirey = true;
             follow(5, 5);
+        } else {
+            setupDowntownNPCs();
         }
-
     } else if (levelName === 'building1') {
         rows = 19; cols = 15;
         respawnx = 18; respawny = 15;
@@ -1526,7 +1545,12 @@ async function loadLevel(levelName) {
         setDoor2Cells(-1, 5, -1, 7, "casino_outside");
         setCells(12, 4, 11, 8, '/assets/blocks/modern_brick.png', { solid: true });
         setCells(12, 5, 12, 7, '/assets/blocks/red_rug.png');
-        setCell(12, 6, '/assets/npcs/lee.png', { solid: true, isSign: true, message: ['Lee: Hello. I am Lee. (Click Again)', 'Welcome to my casino! Have a good time!'] });
+        setCell(12, 6, '/assets/npcs/lee.png', { solid: true, isSign: true, message: ['Lee: Hello. I am Lee. (Click Again)', 'Welcome to my casino! Have a good time!'], 
+            isShop: true,
+            shopName: 'What do you ask Lee?',
+            shopItems: [{name: 'How do I gamble here?', customResponse: 'Lee: Click on a machine and you may lose $10 or win $10. If you win you have to enter a name for the casino scoreboard.'
+            }, {name: 'Are you hiring?', customResponse: 'Lee: I will hire you if you bring me a slice a of pineapple pizza.'}]
+        });
         spawnStructure('slotMachine', 4, 1);
         spawnStructure('slotMachine', 7, 1);
         spawnStructure('slotMachine', 10, 1);
@@ -1546,6 +1570,7 @@ async function loadLevel(levelName) {
         setCells(5, 10, 3, 8, '/assets/blocks/water.png', {solid: true});
         setCells(4, 8, 5, 9, '/assets/blocks/grass.png');
         setCell(4, 9, '/assets/blocks/water.png', {solid: true});
+        if (has_found_treasure === false) {
         setCell(7, 6, '/assets/blocks/chest.png', {
     solid: true,
     isSign: true,
@@ -1556,6 +1581,7 @@ async function loadLevel(levelName) {
         }
     ]
 });
+}
     setCell(2, 4, '/assets/blocks/door_bottom.png', {
                 solid: false, touchMessage: 'You board the boat...'
             });
@@ -1566,6 +1592,32 @@ async function loadLevel(levelName) {
             });
         
         
+    } else if (levelName === 'ice_cream(outside)') {
+        rows = 13; 
+        cols = 13;
+        dtrx = 0;
+        dtry = 5;
+        initiateGrid(rows, cols, '/assets/blocks/stone.png', gridContainer);
+        if (!playerElement) createPlayer(gridContainer);
+        player.x = icrx; player.y = icry;
+        icrx = 12;
+        icry = 6;
+        setCells(6, 0, 0, 8, '/assets/blocks/brick.png', {solid: true});
+        setCells(6, 1, 4, 2, '/assets/blocks/stone.png', {isDoor: true, targetLevel: 'ice_cream'});
+        setCells(4, 1, 4, 2,'/assets/blocks/ice_cream_sign.png', {isSign: true, message: 'Ice Cream Shop'});
+        setDoor2Cells(0, 13, 12, 13, 'downtown');
+    } else if (levelName === 'ice_cream') {
+        rows = 9; 
+        cols = 9;
+        initiateGrid(rows, cols, '/assets/blocks/pink_tile.png', gridContainer);
+        if (!playerElement) createPlayer(gridContainer);
+        player.x = 4; player.y = 8;
+        icrx = 1;
+        icry = 7;
+        setCells(2, 0, 0, 3, '/assets/blocks/modern_brick.png', {solid: true});
+        setCells(1, 0, 0, 2, '/assets/blocks/pink_tile.png');
+        setCell(1, 1, '/assets/npcs/fred.png')
+        setDoor2Cells(9, 0, 9, 8, 'ice_cream(outside)');
     }
 
     if (!cursorImage) setupCrosshair(gridContainer);
