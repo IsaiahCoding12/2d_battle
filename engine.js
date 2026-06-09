@@ -810,6 +810,13 @@ function spawnMonster(row, col, hp, damage, skin, options = {}) {
     };
 }
 
+function getridof (item) {
+     if (item1 === item) item1 = 'nothing'; else if (item2 === item) item2 = 'nothing';
+        else if (item3 === item) item3 = 'nothing'; else if (item4 === item) item4 = 'nothing';
+        else if (item5 === item) item5 = 'nothing';
+        equipped = 'nothing'; return;
+}
+
 // =============================
 // SHOOT
 // =============================
@@ -821,37 +828,22 @@ function shoot(row, col) {
 
     if (equipped === 'Fish') {
         hp += 5; updateUI(); showMessage("You ate a fish.", "green");
-        if (item1 === 'Fish') item1 = 'nothing'; else if (item2 === 'Fish') item2 = 'nothing';
-        else if (item3 === 'Fish') item3 = 'nothing'; else if (item4 === 'Fish') item4 = 'nothing';
-        else if (item5 === 'Fish') item5 = 'nothing';
-        equipped = 'nothing'; return;
+        getridof('Fish');
     } else if (equipped === 'Energy Bar') {
         hp += 10; updateUI(); showMessage("You ate an energy bar. You feel energized!", "green");
-        if (item1 === 'Energy Bar') item1 = 'nothing'; else if (item2 === 'Energy Bar') item2 = 'nothing';
-        else if (item3 === 'Energy Bar') item3 = 'nothing'; else if (item4 === 'Energy Bar') item4 = 'nothing';
-        else if (item5 === 'Energy Bar') item5 = 'nothing';
-        equipped = 'nothing'; return;
+        getridof('Energy Bar');
     } else if (equipped.startsWith('Beef Jerky')) {
         hp += 4; updateUI(); showMessage("You ate some Beef Jerky.", "green");
         let nextName = 'nothing';
         if (equipped === 'Beef Jerky') { nextName = 'Beef Jerky (4)'; }
         else { const match = equipped.match(/\((\d+)\)/); if (match) { const uses = parseInt(match[1], 10); if (uses > 1) nextName = `Beef Jerky (${uses - 1})`; } }
-        if (item1 === equipped) item1 = nextName; else if (item2 === equipped) item2 = nextName;
-        else if (item3 === equipped) item3 = nextName; else if (item4 === equipped) item4 = nextName;
-        else if (item5 === equipped) item5 = nextName;
-        equipped = nextName; return;
+        getridof('Beef Jerky');
     } else if (equipped === 'Money Bar') {
         hp += 10; money += 10; updateUI(); showMessage("You ate a Money Bar. +$10", "green");
-        if (item1 === 'Money Bar') item1 = 'nothing'; else if (item2 === 'Money Bar') item2 = 'nothing';
-        else if (item3 === 'Money Bar') item3 = 'nothing'; else if (item4 === 'Money Bar') item4 = 'nothing';
-        else if (item5 === 'Money Bar') item5 = 'nothing';
-        equipped = 'nothing'; return;
+       getridof('Money Bar');
     } else if (equipped === 'Kombucha') {
         hp += 10; updateUI(); showMessage("You drank Kombucha.", "green");
-        if (item1 === 'Kombucha') item1 = 'nothing'; else if (item2 === 'Kombucha') item2 = 'nothing';
-        else if (item3 === 'Kombucha') item3 = 'nothing'; else if (item4 === 'Kombucha') item4 = 'nothing';
-        else if (item5 === 'Kombucha') item5 = 'nothing';
-        equipped = 'nothing'; return;
+        getridof('Kombucha');
     } else if (equipped === 'Grenade') {
         showMessage("BOOM", "red");
         if (item1 === 'Grenade') item1 = 'nothing'; else if (item2 === 'Grenade') item2 = 'nothing';
@@ -866,6 +858,12 @@ function shoot(row, col) {
         else if (item3 === equipped) item3 = 'nothing'; else if (item4 === equipped) item4 = 'nothing';
         else if (item5 === equipped) item5 = 'nothing';
         equipped = 'nothing'; return;
+    } else if (equipped === 'Vanilla Ice Cream') {
+        hp += 2; updateUI(); showMessage("You ate the Vanilla Ice Cream! You enjoyed it!");
+        getridof('Vanilla Ice Cream');
+    } else if (equipped === 'Chocolate Ice Cream') {
+        hp += 2; updateUI(); showMessage("You ate the Chocolate Ice Cream! You enjoyed it!");
+        getridof('Chocolate Ice Cream');
     }
 
     if (equipped === Pistol.name) damage = Pistol.damage;
@@ -1616,7 +1614,9 @@ async function loadLevel(levelName) {
         icry = 7;
         setCells(2, 0, 0, 3, '/assets/blocks/modern_brick.png', {solid: true});
         setCells(1, 0, 0, 2, '/assets/blocks/pink_tile.png');
-        setCell(1, 1, '/assets/npcs/fred.png')
+        setCell(1, 1, '/assets/npcs/alexi.png', {isSign: true, message: ['Alexi: Hello and welcome to my Ice Cream shop... (Click Again)', 'Alexi: How can I help you today?'], isShop: true, shopName: 'Alexi: How can I help you today?',
+            shopItems: [{name: 'Vanilla Ice Cream', price: 5}, {name: 'Chocolate Ice Cream', price: 5}, {name: 'Are you hiring?', customResponse: 'Nah, but I bet that you could get a job at the casino...'}]
+        });
         setDoor2Cells(9, 0, 9, 8, 'ice_cream(outside)');
     }
 
