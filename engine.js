@@ -18,7 +18,7 @@ const NPC_SKINS = [
     '/assets/npcs/rob.png',
     '/assets/npcs/slime.png'
 ];
-const ARENA_ENEMY_SKINS = ['/assets/npcs/firey.png', '/assets/npcs/slime.png'];
+const ARENA_ENEMY_SKINS = ['/assets/npcs/firey.png', '/assets/npcs/slime.png', '/assets/npcs/levithan.png'];
 const ARENA_DIFFICULTIES = [
     { name: 'easy', hp: 40, damage: 5, speed: 420 },
     { name: 'medium', hp: 70, damage: 10, speed: 300 },
@@ -29,6 +29,7 @@ let respawnx = 9;
 let skipTutorial = false;
 let respawny = 9;
 
+let canGetHired = false;
 let dtrx = 18;
 let dtry = 5;
 let icrx = 12;
@@ -364,15 +365,14 @@ function update(currentTime) {
         showMessage(landedCell.touchMessage);
     }
     if (landedCell) {
-    console.log("Cell stepped on:", landedCell);
-
-    if (landedCell.initFunction) {
-        console.log("Running initFunction...");
-        landedCell.initFunction();
-    } else {
-        console.log("No initFunction found");
+        console.log("Cell stepped on:", landedCell);
+        if (landedCell.initFunction) {
+            console.log("Running initFunction...");
+            landedCell.initFunction();
+        } else {
+            console.log("No initFunction found");
+        }
     }
-}
 
     if (targetCell.isDoor && targetCell.targetLevel) {
         loadLevel(targetCell.targetLevel);
@@ -810,11 +810,11 @@ function spawnMonster(row, col, hp, damage, skin, options = {}) {
     };
 }
 
-function getridof (item) {
-     if (item1 === item) item1 = 'nothing'; else if (item2 === item) item2 = 'nothing';
-        else if (item3 === item) item3 = 'nothing'; else if (item4 === item) item4 = 'nothing';
-        else if (item5 === item) item5 = 'nothing';
-        equipped = 'nothing'; return;
+function getridof(item) {
+    if (item1 === item) item1 = 'nothing'; else if (item2 === item) item2 = 'nothing';
+    else if (item3 === item) item3 = 'nothing'; else if (item4 === item) item4 = 'nothing';
+    else if (item5 === item) item5 = 'nothing';
+    equipped = 'nothing'; return;
 }
 
 // =============================
@@ -840,7 +840,7 @@ function shoot(row, col) {
         getridof('Beef Jerky');
     } else if (equipped === 'Money Bar') {
         hp += 10; money += 10; updateUI(); showMessage("You ate a Money Bar. +$10", "green");
-       getridof('Money Bar');
+        getridof('Money Bar');
     } else if (equipped === 'Kombucha') {
         hp += 10; updateUI(); showMessage("You drank Kombucha.", "green");
         getridof('Kombucha');
@@ -852,7 +852,8 @@ function shoot(row, col) {
         equipped = 'nothing'; return;
     } else if (equipped === 'Bop it!') {
         showMessage("You bopped it! You are filled with a sense of joy!", "gold");
-    } else if (['Slice with Cheese', 'Slice with Pepperoni', 'Slice with Black Olives'].includes(equipped)) {
+    // FIX 2: Added 'Slice with Pineapple' to the pizza eating list
+    } else if (['Slice with Cheese', 'Slice with Pepperoni', 'Slice with Black Olives', 'Slice with Pineapple'].includes(equipped)) {
         hp += 10; updateUI(); showMessage("You ate a slice of pizza.", "gold");
         if (item1 === equipped) item1 = 'nothing'; else if (item2 === equipped) item2 = 'nothing';
         else if (item3 === equipped) item3 = 'nothing'; else if (item4 === equipped) item4 = 'nothing';
@@ -890,7 +891,7 @@ function shoot(row, col) {
             if (cell.monster.isFirey) {
                 gameFlags.fireyKilled = true;
                 setCells(0, 18, 10, 18, '/assets/blocks/stone.png', { solid: false });
-                setDoor2Cells(0, -1, 10,- 1, 'ice_cream(outside)');
+                setDoor2Cells(0, -1, 10, -1, 'ice_cream(outside)');
                 setDoor2Cells(0, 19, 10, 19, 'main');
                 setupDowntownNPCs();
             }
@@ -977,6 +978,10 @@ async function moveMonsterTo(startRow, startCol, targetRow, targetCol, duration)
             currentR = step.r; currentC = step.c;
         }
     }
+}
+
+function askedBoutJob() {
+    canGetHired = true;
 }
 
 async function follow(startRow, startCol, stepSpeed = 300) {
@@ -1104,7 +1109,7 @@ async function loadLevel(levelName) {
 
     } else if (levelName === 'cliffs') {
         rows = 19; cols = 19;
-        if (rfi === true) {showMessage("You return to the cliffs...");}
+        if (rfi === true) { showMessage("You return to the cliffs..."); }
         rfi = false;
         respawnx = 9; respawny = 17;
         initiateGrid(rows, cols, '/assets/blocks/grass.png', gridContainer);
@@ -1125,13 +1130,8 @@ async function loadLevel(levelName) {
         setCell(3, 4, '/assets/npcs/farmer.png', { solid: true, isSign: true, message: 'Farmer: So peaceful, innit it. (sigh)' });
 
         if (gameFlags.hasBoat) {
-            setCell(16, 4, '/assets/blocks/door_bottom.png', {
-                solid: false, isDoor: true, targetLevel: 'island',
-            });
-            setCell(15, 4, '/assets/blocks/sign.png', {
-                solid: false, isSign: true,
-                message: 'You board the boat...'
-            });
+            setCell(16, 4, '/assets/blocks/door_bottom.png', { solid: false, isDoor: true, targetLevel: 'island' });
+            setCell(15, 4, '/assets/blocks/sign.png', { solid: false, isSign: true, message: 'You board the boat...' });
         } else {
             setCell(15, 4, '/assets/blocks/water.png', { solid: true, touchMessage: "The waves rush and you decide to go back up the ladder..." });
         }
@@ -1145,7 +1145,7 @@ async function loadLevel(levelName) {
 
         setCells(0, 18, 10, 18, '/assets/blocks/stone.png', { solid: false });
         if (gameFlags.fireyKilled) setDoor2Cells(0, 19, 10, 19, 'main');
-        if (gameFlags.fireyKilled) setDoor2Cells(0, -1, 10,- 1, 'ice_cream(outside)');
+        if (gameFlags.fireyKilled) setDoor2Cells(0, -1, 10, -1, 'ice_cream(outside)');
         setCells(1, 0, 1, 14, '/assets/blocks/dirt.png', { solid: true });
         setCell(3, 13, '/assets/blocks/sign.png', { solid: false, isSign: true, message: 'Market...' });
         setCell(0, 14, '/assets/blocks/dirt.png', { solid: true });
@@ -1168,6 +1168,7 @@ async function loadLevel(levelName) {
         } else {
             setupDowntownNPCs();
         }
+
     } else if (levelName === 'building1') {
         rows = 19; cols = 15;
         respawnx = 18; respawny = 15;
@@ -1423,10 +1424,12 @@ async function loadLevel(levelName) {
         setCells(0, 8, 2, 8, '/assets/blocks/brick.png', { solid: true });
         setCells(2, 4, 2, 8, '/assets/blocks/brick.png', { solid: true });
 
+        // FIX 1: Added missing comma after Black Olives + added Pineapple slice
         const lukeItems = [
             {name: 'Slice with Cheese', price: 10},
             {name: 'Slice with Pepperoni', price: 10},
-            {name: "Slice with Black Olives", price: 10}
+            {name: 'Slice with Black Olives', price: 10},
+            {name: 'Slice with Pineapple', price: 12}
         ];
         if (gameFlags.askedAboutIsland && !gameFlags.hasBoat) {
             lukeItems.push({
@@ -1543,11 +1546,17 @@ async function loadLevel(levelName) {
         setDoor2Cells(-1, 5, -1, 7, "casino_outside");
         setCells(12, 4, 11, 8, '/assets/blocks/modern_brick.png', { solid: true });
         setCells(12, 5, 12, 7, '/assets/blocks/red_rug.png');
-        setCell(12, 6, '/assets/npcs/lee.png', { solid: true, isSign: true, message: ['Lee: Hello. I am Lee. (Click Again)', 'Welcome to my casino! Have a good time!'], 
+        // FIX 3: 'Are you hiring?' has no customResponse — handled in buyItem so the
+        // inventory check runs at click time, not at level-load time.
+        setCell(12, 6, '/assets/npcs/lee.png', {
+            solid: true, isSign: true,
+            message: ['Lee: Hello. I am Lee. (Click Again)', 'Welcome to my casino! Have a good time!'],
             isShop: true,
             shopName: 'What do you ask Lee?',
-            shopItems: [{name: 'How do I gamble here?', customResponse: 'Lee: Click on a machine and you may lose $10 or win $10. If you win you have to enter a name for the casino scoreboard.'
-            }, {name: 'Are you hiring?', customResponse: 'Lee: I will hire you if you bring me a slice a of pineapple pizza.'}]
+            shopItems: [
+                {name: 'How do I gamble here?', customResponse: 'Lee: Click on a machine and you may lose $10 or win $10. If you win you have to enter a name for the casino scoreboard.'},
+                {name: 'Are you hiring?'}
+            ]
         });
         spawnStructure('slotMachine', 4, 1);
         spawnStructure('slotMachine', 7, 1);
@@ -1555,6 +1564,7 @@ async function loadLevel(levelName) {
         spawnStructure('slotMachine', 4, 10);
         spawnStructure('slotMachine', 7, 10);
         spawnStructure('slotMachine', 10, 10);
+
     } else if (levelName === "island") {
         rows = 13; cols = 13;
         rfi = true;
@@ -1569,29 +1579,26 @@ async function loadLevel(levelName) {
         setCells(4, 8, 5, 9, '/assets/blocks/grass.png');
         setCell(4, 9, '/assets/blocks/water.png', {solid: true});
         if (has_found_treasure === false) {
-        setCell(7, 6, '/assets/blocks/chest.png', {
-    solid: true,
-    isSign: true,
-    message: [
-        () => {
-            findDaCash();
-            return "You opened the chest and found $2000!";
+            setCell(7, 6, '/assets/blocks/chest.png', {
+                solid: true,
+                isSign: true,
+                message: [
+                    () => {
+                        findDaCash();
+                        return "You opened the chest and found $2000!";
+                    }
+                ]
+            });
         }
-    ]
-});
-}
-    setCell(2, 4, '/assets/blocks/door_bottom.png', {
-                solid: false, touchMessage: 'You board the boat...'
-            });
-            setCell(1, 4, '/assets/blocks/sign.png', {
-                solid: false, isSign: true,
-                message: 'You board the boat...', isDoor: true,
-                targetLevel: 'cliffs',
-            });
-        
-        
+        setCell(2, 4, '/assets/blocks/door_bottom.png', { solid: false, touchMessage: 'You board the boat...' });
+        setCell(1, 4, '/assets/blocks/sign.png', {
+            solid: false, isSign: true,
+            message: 'You board the boat...', isDoor: true,
+            targetLevel: 'cliffs',
+        });
+
     } else if (levelName === 'ice_cream(outside)') {
-        rows = 13; 
+        rows = 13;
         cols = 13;
         dtrx = 0;
         dtry = 5;
@@ -1602,10 +1609,11 @@ async function loadLevel(levelName) {
         icry = 6;
         setCells(6, 0, 0, 8, '/assets/blocks/brick.png', {solid: true});
         setCells(6, 1, 4, 2, '/assets/blocks/stone.png', {isDoor: true, targetLevel: 'ice_cream'});
-        setCells(4, 1, 4, 2,'/assets/blocks/ice_cream_sign.png', {isSign: true, message: 'Ice Cream Shop'});
+        setCells(4, 1, 4, 2, '/assets/blocks/ice_cream_sign.png', {isSign: true, message: 'Ice Cream Shop'});
         setDoor2Cells(0, 13, 12, 13, 'downtown');
+
     } else if (levelName === 'ice_cream') {
-        rows = 9; 
+        rows = 9;
         cols = 9;
         initiateGrid(rows, cols, '/assets/blocks/pink_tile.png', gridContainer);
         if (!playerElement) createPlayer(gridContainer);
@@ -1614,7 +1622,15 @@ async function loadLevel(levelName) {
         icry = 7;
         setCells(2, 0, 0, 3, '/assets/blocks/modern_brick.png', {solid: true});
         setCells(1, 0, 0, 2, '/assets/blocks/pink_tile.png');
-        setCell(1, 1, '/assets/npcs/alexi.png', {isSign: true, message: ['Alexi: Hello and welcome to my Ice Cream shop... (Click Again)', 'Alexi: How can I help you today?'], isShop: true, shopName: 'Alexi: How can I help you today?',
+        setCell(1, 1, '/assets/npcs/alexi.png', {
+            isSign: true,
+            message: [
+                () => {
+                    askedBoutJob();
+                    return "Alexi: Welcome to my Ice Cream store, how can I help you?";
+                }
+            ],
+            isShop: true, shopName: 'Alexi: How can I help you today?',
             shopItems: [{name: 'Vanilla Ice Cream', price: 5}, {name: 'Chocolate Ice Cream', price: 5}, {name: 'Are you hiring?', customResponse: 'Nah, but I bet that you could get a job at the casino...'}]
         });
         setDoor2Cells(9, 0, 9, 8, 'ice_cream(outside)');
@@ -1696,6 +1712,23 @@ function buyItem(name, cost, customResponse) {
     if (name === 'Enter Arena') {
         closeShop();
         loadLevel('Arena');
+        return;
+    }
+    // FIX 3: Lee hiring — checked here at click time so inventory is current
+    if (name === 'Are you hiring?') {
+        if ([item1, item2, item3, item4, item5].includes('Slice with Pineapple')) {
+            if (item1 === 'Slice with Pineapple') item1 = 'nothing';
+            else if (item2 === 'Slice with Pineapple') item2 = 'nothing';
+            else if (item3 === 'Slice with Pineapple') item3 = 'nothing';
+            else if (item4 === 'Slice with Pineapple') item4 = 'nothing';
+            else if (item5 === 'Slice with Pineapple') item5 = 'nothing';
+            job = 'Casino Worker';
+            updateUI();
+            showMessage("Lee: Pineapple pizza?! A man of culture. You're hired!", "gold", true);
+        } else {
+            showMessage("Lee: I will hire you if you bring me a slice of pineapple pizza.", "white");
+        }
+        closeShop();
         return;
     }
     if (name === 'Yes') {
