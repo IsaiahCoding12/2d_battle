@@ -25,6 +25,7 @@ const ARENA_DIFFICULTIES = [
     { name: 'hard', hp: 110, damage: 15, speed: 180 }
 ];
 
+let agpp = false;
 let respawnx = 9;
 let skipTutorial = false;
 let respawny = 9;
@@ -53,7 +54,7 @@ document.getElementById("Admin").textContent = admin;
 let playerElement = null;
 let cursorImage = null;
 let gridContainer = null;
-
+let hasNoteFromJay = false;
 let mouseRow = null;
 let mouseCol = null;
 let showCoords = false;
@@ -442,6 +443,9 @@ function findDaCash() {
 // GRID INIT
 // =============================
 function initiateGrid(r, c, value, container) {
+    rows = r;
+    cols = c;
+
     grid = [];
     door2s = [];
     while (container.firstChild) container.removeChild(container.firstChild);
@@ -826,7 +830,10 @@ function shoot(row, col) {
     let damage = 0;
     const now = performance.now();
 
-    if (equipped === 'Fish') {
+    if (equipped === 'Note') {
+    showMessage("You decide to respect Jay's privacy and not read the note.", "cyan");
+    return;
+ }  else if (equipped === 'Fish') {
         hp += 5; updateUI(); showMessage("You ate a fish.", "green");
         getridof('Fish');
     } else if (equipped === 'Energy Bar') {
@@ -1392,7 +1399,7 @@ async function loadLevel(levelName) {
             solid: true, isSign: true,
             message: ['Jay: Hey... (Click again)', 'Welcome to the bank. (Click Again)', 'What can I help you with?'],
             isShop: true, shopName: "Jay: What can I help you with?",
-            shopItems: [{name: 'Add Money'}, {name: 'Take Money'}, {name: 'Why should I put money here?', customResponse: "Jay: Every minute, you get $1 for every $20 in the bank! You can earn a lot!"}]
+            shopItems: [{name: 'Add Money'}, {name: 'Take Money'}, {name: 'Why should I put money here?', customResponse: "Jay: Every minute, you get $1 for every $20 in the bank! You can earn a lot!"}, {name: 'Can I help you with anything?', customResponse: 'Well, you could give my son Fred this note! He is downtown at the market!'}]
         });
 
         let cloakMsg = ["Cloak Man: Hey there. (Click Again)", "I'm the Cloak Man. I sell stuff downtown. You might see me there. (Click Again)", "Anyway you wanna buy someth- (Click Again)", "Jay (Bank Guy): Hey!!! Are you talking to random people again! (Click Again)", "Cloak Man: Don't listen to him. Now you wanna buy something or not."];
@@ -1555,7 +1562,7 @@ async function loadLevel(levelName) {
             shopName: 'What do you ask Lee?',
             shopItems: [
                 {name: 'How do I gamble here?', customResponse: 'Lee: Click on a machine and you may lose $10 or win $10. If you win you have to enter a name for the casino scoreboard.'},
-                {name: 'Are you hiring?'}
+                {name: 'Are you hiring?', cost: 0}
             ]
         });
         spawnStructure('slotMachine', 4, 1);
@@ -1698,12 +1705,51 @@ function closeShop() {
 }
 
 function buyItem(name, cost, customResponse) {
+
+    if (customResponse) {
+        showMessage(customResponse);
+    }
+
     if (name === 'Fight for the boat') {
         closeShop();
         showMessage("Cloak Man: Oh you want the boat? You'll have to beat me first!", "red");
         setTimeout(() => loadLevel('CloakFight'), 1500);
         return;
     }
+
+    if (name === 'Can I help you with anything?') {
+        bought = false;
+        if (item1 === 'nothing') { item1 = "Note"; bought = true; }
+        else if (item2 === 'nothing') { item2 = "Note"; bought = true; }
+        else if (item3 === 'nothing') { item3 = "Note"; bought = true; }
+        else if (item4 === 'nothing') { item4 = "Note"; bought = true; }
+        else if (item5 === 'nothing') { item5 = "Note"; bought = true; }
+        if (bought) {  closeShop(); return; }
+        showMessage("Inventory full!", "red");
+    }
+
+    if (name === 'Give the note!') {
+    if (item1 === 'Note') item1 = 'nothing';
+    else if (item2 === 'Note') item2 = 'nothing';
+    else if (item3 === 'Note') item3 = 'nothing';
+    else if (item4 === 'Note') item4 = 'nothing';
+    else if (item5 === 'Note') item5 = 'nothing';
+    equipped = 'nothing';
+    money += 10;
+    hasNoteFromJay = false;
+    gameFlags.gaveNoteToFred = true;
+    updateUI();
+    showMessage("Fred: Thanks so much! Here's $10!", "gold");
+    getridof('Note');
+    setCell(0, 9, '/assets/npcs/fred.png', {
+            solid: true, isShop: true, shopName: "Fred's Stuff",
+            shopItems: [{name: 'Bop it!', price: 17}],
+            isSign: true, message: ["Fred: Hi. (Click again)", "My name is Fred and I only have one thing to sell. Sorry 😞"]
+        });
+    closeShop();
+    return;
+}
+
     if (customResponse) {
         showMessage(customResponse, "white");
         closeShop();
@@ -1716,21 +1762,20 @@ function buyItem(name, cost, customResponse) {
     }
     // FIX 3: Lee hiring — checked here at click time so inventory is current
     if (name === 'Are you hiring?') {
-        if ([item1, item2, item3, item4, item5].includes('Slice with Pineapple')) {
-            if (item1 === 'Slice with Pineapple') item1 = 'nothing';
-            else if (item2 === 'Slice with Pineapple') item2 = 'nothing';
-            else if (item3 === 'Slice with Pineapple') item3 = 'nothing';
-            else if (item4 === 'Slice with Pineapple') item4 = 'nothing';
-            else if (item5 === 'Slice with Pineapple') item5 = 'nothing';
-            job = 'Casino Worker';
-            updateUI();
-            showMessage("Lee: Pineapple pizza?! A man of culture. You're hired!", "gold", true);
-        } else {
-            showMessage("Lee: I will hire you if you bring me a slice of pineapple pizza.", "white");
-        }
-        closeShop();
-        return;
+    if (agpp === true) {
+        showMessage('Lee: I already said I hired you, thanks for the pizza. Work is next year! HAHAHA');
+    } else if ([item1, item2, item3, item4, item5].includes('Slice with Pineapple')) {
+        getridof('Slice with Pineapple');
+        job = 'Casino Worker';
+        updateUI();
+        showMessage("Lee: You have Pineapple pizza?! A man of culture. You're hired! I'm taking the pizza also.", "gold", true);
+        agpp = true;
+    } else {
+        showMessage("Lee: I will hire you if you bring me a slice of pineapple pizza.", "white");
     }
+    closeShop();
+    return;
+}
     if (name === 'Yes') {
         closeShop();
         if (money < 10) { showMessage("Not enough money to gamble!", "red"); return; }
@@ -1846,6 +1891,14 @@ function setupDowntownNPCs() {
             shopItems: [{name: 'Bop it!', price: 17}],
             isSign: true, message: ["Fred: Hi. (Click again)", "My name is Fred and I only have one thing to sell. Sorry 😞"]
         });
+        if (item1 === 'Note' || item2 === 'Note' || item3 === 'Note' || item4 === 'Note' || item5 === 'Note') {
+            hasNoteFromJay = true;
+            setCell(0, 9, '/assets/npcs/fred.png', {
+            solid: true, isShop: true, shopName: "Fred's Stuff",
+            shopItems: [{name: 'Bop it!', price: 17}, {name: 'Give the note!', customResponse: 'Thanks! For giving me this. Take ten dollars!'}],
+            isSign: true, message: ["Fred: Hi. (Click again)", "My name is Fred and I only have one thing to sell. Sorry 😞"]
+        });
+        }
     } else {
         setCell(0, 1, '/assets/npcs/cloak_man.png', { solid: true, isShop: false, isSign: true, message: "Cloak Man: hahaha, i like monsters" });
         setCell(0, 5, '/assets/npcs/bobby.png', { solid: true, isShop: false, isSign: true, message: "Bobby: AHHH.. MONSTER!!!" });
